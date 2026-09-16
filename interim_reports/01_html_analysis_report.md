@@ -204,8 +204,22 @@ stateDiagram-v2
    - 본 프로젝트의 `index (배포용).html`은 원작자(하루담이 님)가 일선 학교 선생님들이 자체 Firebase 계정으로 "우리 반 전용 서버"를 5분 만에 무료 개설할 수 있도록 배포용으로 패키징한 템플릿입니다.
 2. **버그 존재 여부 검증**:
    - 공식 라이브 사이트 코드를 직접 다운로드하여 비교 검증한 결과, **라이브 사이트에도 '아이패드 사파리 제스처 줌 방지' 및 '급식실 음식 밑 눕기 무적 버그'가 동일하게 미해결 상태로 존재**함을 확인했습니다.
-3. **개선 가치**:
-   - 우리가 본 프로젝트의 [`index.html`](file:///D:/Projects/eraser_hideandseek/index.html)에 적용할 패치는 원본 공식 버전의 한계를 극복한 **교실 실전 최적화 안정화 버전(v2.0.1)**이 됩니다.
+---
+
+## 13. GitHub Pages 배포 준비 및 패치 적용 완료 (v2.0.1)
+
+1. **2대 핵심 버그 패치 적용 완료**:
+   - [`index.html`](file:///D:/Projects/eraser_hideandseek/index.html) 파일에 **아이패드 사파리 제스처 확대 차단/화면 맞춤 버튼** 및 **급식실 음식 밑 눕기 무적 버그(물리 충돌면 상향 및 레이캐스트 유령 차폐 제거)** 수정 코드 반영 완료.
+   - Node.js 구문 검사(`node --check`) 결과 문법 오류 없음(Passed) 검증 완료.
+2. **저장소 문서 및 환경 구성**:
+   - GitHub Pages 표준 루트 엔트리포인트: [`index.html`](file:///D:/Projects/eraser_hideandseek/index.html)
+   - 프로젝트 설명 및 배포 안내: [`README.md`](file:///D:/Projects/eraser_hideandseek/README.md)
+   - 서버 구축 가이드: [`guide.md`](file:///D:/Projects/eraser_hideandseek/guide.md)
+   - Git 무시 파일: [`.gitignore`](file:///D:/Projects/eraser_hideandseek/.gitignore)
+3. **Git 저장소 초기화 및 커밋 완료**:
+   - `main` 브랜치 초기화 및 첫 커밋(`a40ddfb`) 완료.
+   - 원격 GitHub 레포지토리 연결 및 원클릭 푸시 준비 완료.
+
 
 
 
