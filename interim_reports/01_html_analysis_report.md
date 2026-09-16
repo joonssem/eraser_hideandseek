@@ -220,6 +220,11 @@ stateDiagram-v2
    - 원격 저장소(`https://github.com/joonssem/eraser_hideandseek.git`) 연결 완료.
    - `main` 브랜치 원격 푸시 성공 (`git push -u origin main`).
    - GitHub Pages 최종 접속 주소 예정: `https://joonssem.github.io/eraser_hideandseek/`
+4. **사용자 전용 Firebase Realtime Database 연동 완료**:
+   - 프로젝트 ID: `eraser-6bb35` (위치: `asia-southeast1`)
+   - [`index.html`](file:///D:/Projects/eraser_hideandseek/index.html) 내 `firebaseConfig` 실제 발급 키 삽입 완료.
+   - 학급 전용 멀티플레이 서버 가동 준비 100% 완료.
+
 
 
 
