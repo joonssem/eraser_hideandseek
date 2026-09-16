@@ -1,0 +1,53 @@
+﻿{
+  "fb_servers_lines": [
+    [
+      363,
+      "웹 앱( </> 아이콘 ) 추가 → firebaseConfig 코드가 나옵니다."
+    ],
+    [
+      364,
+      "5) 그 firebaseConfig의 중괄호 { } 안 내용을 복사해서,"
+    ],
+    [
+      366,
+      "※ databaseURL 줄이 없다면 2)번(Realtime Database 만들기)을"
+    ],
+    [
+      367,
+      "먼저 한 뒤 다시 복사하면 databaseURL이 포함되어 나옵니다."
+    ],
+    [
+      375,
+      "const firebaseConfig = {"
+    ],
+    [
+      378,
+      "databaseURL: \"여기에_붙여넣기\","
+    ],
+    [
+      390,
+      "window.FIREBASE_CONFIG = firebaseConfig;"
+    ],
+    [
+      675,
+      "return \"⚠️ 설정 구역에 오류가 있어요. 파일 맨 위 \\\"선생님 설정 구역\\\"에서 ① 기존 예시를 지운 자리에 붙여넣었는지 ② import로 시작하는 줄은 빼고 firebaseConfig = { ... } 부분만 붙여넣었는지 확인해 주세요.\";"
+    ],
+    [
+      676,
+      "const need=[\"apiKey\",\"authDomain\",\"databaseURL\",\"projectId\",\"appId\"];"
+    ],
+    [
+      680,
+      "if(isPlaceholder(c.databaseURL))"
+    ]
+  ],
+  "map_details": {
+    "buildMap": 927,
+    "buildScienceLab": 1201,
+    "buildCafeteria": 1496,
+    "buildLibrary": 1758
+  },
+  "settings_lines": [],
+  "minigame_sample": "  else if(phase===\"LOBBY\"){ if(G.isHost)resetLobbyForNewRound(); showScreen(\"LOBBY\"); }\n  syncLocalFairy();\n  updateMobileButtons();\n}\n/* ================= 필통 대기 미니게임 (술래 전용, 심심풀이) ================= */\nlet caseGameTimer=null, caseGameScore=0;\nfunction spawnCrumb(){\n  const area=$(\"caseGameArea\"); if(!area)return;\n  const el=document.createElement(\"div\");\n  el.className=\"crumb\"; el.textContent=[\"🧼\",\"✨\",\"⭐\"][Math.floor(Math.random()*3)];\n  const w=area.clientWidth||300, h=area.clientHeight||150;\n  el.style.left=(6+Math.random()*Math.max(1,w-50))+\"px\";\n  el.style.top=(6+Math.random()*Math.max(1,h-50))+\"px\";\n  let popped=false;\n  const life=setTimeout(()=>{ if(!popped&&el.isConnected)el.remove(); },1100);\n  el.onpointerdown=e=>{\n    e.stopPropagation(); if(popped)return; popped=true; clearTimeout(life);\n    caseGameScore++; const sc=$(\"caseGameScore\"); if(sc)sc.textContent=\"✨ \"+caseGameScore;\n    Audio2.resume(); Audio2.sfxRefill();\n    el.classList.add(\"pop\"); setTimeout(()=>{ if(el.isCon",
+  "teacher_sample": "/* ================= v2: 게임 중 선생님 패널 ================= */\n$(\"teacherPanelToggle\").onclick=()=>{\n  const b=$(\"teacherPanelBody\"); b.classList.toggle(\"collapsed\");\n  $(\"teacherPanelToggle\").textContent=\"🧑‍🏫 선생님 패널 \"+(b.classList.contains(\"collapsed\")?\"▴\":\"▾\");\n};\n$(\"btnTimeMinus\").onclick=()=>Net.adjustPhaseTime(-30000);\n$(\"btnTimePlus\").onclick=()=>Net.adjustPhaseTime(30000);\n$(\"btnEndPaintNow\").onclick=()=>Net.forcePhase(\"PAINT\");\n$(\"btnEndSeekNow\").onclick=()=>Net.forcePhase(\"SEEK\");\n$(\"btnForceEndRound\").onclick=()=>{ if(confirm(\"라운드를 지금 강제로 종료할까요?\"))Net.forceEndRound(); };\n$(\"btnFreeze\").onclick=()=>{Audio2.resume();Net.toggleFrozen();};\n$(\"btnBlackout\").onclick=()=>{Audio2.resume();\n  const off=((Net.meta.settings||{}).blackout===\"off\");\n  Net.updateSettings({blackout:off?\"on\":\"off\"});\n  toast(off?\"⚡ 정전 기믹을 켰어요\":\"💡 정전 기믹을 껐어요\");\n};\n\nfunction toggleTVMode(force){\n  G.tvMode=typeof force===\"boolean\"?force:!G.tvMode;\n  $(\"tvHud\").classList.toggle(\"hidden\",!G.tvMode);\n  $(\"btnToggleTV\""
+}

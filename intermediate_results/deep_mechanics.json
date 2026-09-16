@@ -1,0 +1,51 @@
+﻿{
+  "firebase_servers": "const FIREBASE_SERVERS=[\n  {idx:1,name:\"우리 반 서버\",config:fbConfigProblem()?null:window.FIREBASE_CONFIG},\n];\n\n/* ================= 유틸 ================= */\nconst $=id=>document.getElementById(id);\nconst clamp=(v,a,b)=>Math.max(a,Math.min(b,v));\nconst lerp=(a,b,t)=>a+(b-a)*t;\nconst rand=(a,b)=>a+Math.random()*(b-a);\nfunction mulberry32(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}\nconst IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;\nfunction fmtTime(ms){const s=Math.max(0,Math.ceil(ms/1000));return Math.floor(s/60)+\":\"+String(s%60).padStart(2,\"0\");}\nfunction hsvToRgb(h,s,v){const f=(n,k=(n+h/60)%6)=>v-v*s*Math.max(Math.min(k,4-k,1),0);return[f(5)*255|0,f(3)*255|0,f(1)*255|0];}\nfunction rgbHex(r,g,b){return \"#\"+[r,g,b].map(x=>Math.round(x).toString(16).padStart(2,\"0\")).join(\"\");}\n\n/* ================= 오디오 (Web Audio 합성) ================= */\nconst Audio2={\n  ctx:null, muted:false, master:null,\n  init(){ if(this.ctx) return;\n    this.ctx=new (window.AudioContext||window.webkitAudioContext)();\n    this.master=this.ctx.createGain(); this.master.gain.value=0.5; this.master.connect(this.ctx.destination);\n    if(localStorage.getItem(\"er_mute\")===\"1\"){this.muted=true;this.master.gain.value=0;}\n  },\n  resume(){ this.init(); if(this.ctx.state===\"suspended\") this.ctx.resume(); },\n  tone(freq,dur,type=\"sine\",vol=0.25,when=0,slideTo=null){\n    if(!this.ctx||this.muted)return; const t=this.ctx.currentTime+when;\n    const o=this.ctx.createOscillator(),g=this.ctx.createGain();\n    o.type=type;o.frequency.setValueAtTime(freq,t);\n    if(slideTo)o.frequency.exponentialRampToValueAtTime(slideTo,t+dur);\n    g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.001,t+dur);\n    o.connect(g);g.connect(this.master);o.start(t);o.stop(t+dur+0.02);\n  },\n  noise(dur,filterFreq,vol=0.3,when=0){\n    if(!this.ctx||this.muted)return; const t=this.ctx.currentTime+when;\n    const len=Math.max(1,this.ctx.sampleRate*dur|0);",
+  "blackout": [
+    "L1438: const Sci={spot:null,fog:false,warnedCycle:-1,blackout:false,localStart:0};",
+    "L1443: Sci.blackout=false; Sci.warnedCycle=-1; Sci.localStart=0;",
+    "L1460: // v3: 선생님이 패널에서 정전 기믹을 끌 수 있음 (meta.settings.blackout===\"off\")",
+    "L1462: const gimmickOn=(Net.mode!==\"online\")||(((Net.meta&&Net.meta.settings)||{}).blackout!==\"off\");",
+    "L1465: const blackout=gimmickOn&&inSeek&&cyc>=LIGHT;                    // 뒤 30초 정전",
+    "L1467: if(blackout&&!Sci.blackout)Sci.blackout=true;",
+    "L1468: if(!blackout&&Sci.blackout){ Sci.blackout=false; toast(\"💡 전원 복구!\"); }",
+    "L1472: else if(blackout&&cyc<LIGHT+2.6){ ca.textContent=\"🔦 정전!\"; ca.classList.remove(\"hidden\"); }",
+    "L1475: const tA=blackout?AMB_BASE*0.12:AMB_BASE, tS=blackout?SUN_BASE*0.12:SUN_BASE;",
+    "L1481: if(blackout){ if(!scene.fog)scene.fog=new THREE.Fog(0x080b10,12,72); }"
+  ],
+  "library": [
+    "L1718: 📚 맵 3. 도서관 — buildLibrary + updateBookCarts(움직이는 책수레 2대)",
+    "L1951: function updateBookCarts(dt){",
+    "L1985: function cartCleanup(){ Carts=[]; }",
+    "L1991: if(currentMapId!==\"library\") cartCleanup(); else updateBookCarts(dt);"
+  ],
+  "poses": [
+    "L653: <div class=\"mbtn\" data-pose=\"stand\">서기</div>",
+    "L654: <div class=\"mbtn\" data-pose=\"lie\">눕기</div>",
+    "L2256: f.group.rotation.x=pose===\"lie\"?-Math.PI/2:(pose===\"lean\"?-0.26:0);",
+    "L2257: f.group.position.y=f.group.userData.baseY+(pose===\"lie\"?0.32:0);",
+    "L2261: f.hitbox.scale.set(1,pose===\"lie\"?1.3:1,pose===\"lie\"?0.45:1);",
+    "L2264: function animateFairyMovement(f,dt,moveAmount,pose=\"stand\",grounded=true,flying=false){",
+    "L2275: }else if(pose===\"lie\"){",
+    "L2354: pose:\"stand\", mirror:false,",
+    "L2414: target:{x:0,y:0,z:0,ry:0,pose:\"stand\",flying:false},cur:{x:0,y:0,z:0,ry:0},prevX:0,prevZ:0};",
+    "L2481: const pose=G.spectating?G.specAnchorPose:G.pose;",
+    "L2492: const targetY=G.pose===\"lie\"?0.32:0.82;",
+    "L2554: G.specAnchorPose=G.pose;",
+    "L2569: G.pose=G.specAnchorPose;",
+    "L2586: const [hx,hz]=POSE_HALF[G.pose];",
+    "L2587: return {hx,hz,H:POSE_H[G.pose]};"
+  ],
+  "paint_sample": [
+    "L2007: /* base64 텍스처 이미지를 offscreen canvas에 1회 캐싱 — 기존 trySample()이 GLB 맵에서도",
+    "L2008: 수정 없이 동작하도록 하기 위함입니다 (samplePixel이 map.userData.canvas의 UV 픽셀을 읽음). */",
+    "L2959: function trySample(cx,cy){",
+    "L3299: const ok=trySample(e.clientX,e.clientY);",
+    "L3305: if(e.button===2){trySample(e.clientX,e.clientY);return;}",
+    "L3314: if(e.button===2||e.altKey){ if(G.role===\"hider\"&&(G.phase===\"PAINT\"||G.phase===\"SEEK\"))trySample(e.clientX,e.clientY); return; }",
+    "L3370: const ok=trySample(e.clientX,e.clientY);"
+  ],
+  "settings": [
+    "L3609: settings:{paintSec:60,seekSec:180},hostRole:\"spectator\",manualSeekers:null,mapId:\"classroom\"});",
+    "L4702: {settings:{paintSec:60,seekSec:180},manualSeekers:null}).catch(()=>{});"
+  ]
+}

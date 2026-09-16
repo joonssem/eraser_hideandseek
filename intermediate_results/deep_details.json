@@ -1,0 +1,10 @@
+﻿{
+  "ws_urls": [],
+  "packet_types": [],
+  "map_keys": [],
+  "teacher_buttons": [
+    "btnFreeze"
+  ],
+  "network_snippet_len": 29025,
+  "minigame_snippet_len": 11498
+}

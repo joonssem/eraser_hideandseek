@@ -1,0 +1,11 @@
+# Dependency & system
+node_modules/
+.DS_Store
+Thumbs.db
+
+# Secrets & Local Environment
+.env
+.env.local
+
+# Temporary / Scratch
+intermediate_results/test_bundle.js

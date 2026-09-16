@@ -1,0 +1,344 @@
+=== CAFETERIA LINES ===
+function buildCafeteria(){
+  WALL_H=36;   // 전엔 56으로 너무 높아 휑했음 — 급식실 규모에 맞게 낮춤(가장 높은 메뉴판 top ~23.5 위로 여유)
+  CAFE_SLIP=[]; CAFE_STEAM=[]; CAFE_BELT=null; CAFE_STEAM_SPR=[]; CAFE_TRAYS=[];
+  const floorTex=canvasTex(256,256,(g,w,h)=>{
+    for(let r=0;r<8;r++)for(let c=0;c<8;c++){ g.fillStyle=((r+c)%2)?"#e7ded0":"#d3c7b2";
+      g.fillRect(c*32,r*32,32,32); }
+  },6,5);
+  buildRoomShell(lambert({map:floorTex}),0xe6d8c2,0xf3efe6,0xa08a6a);
+
+  // ── 앞(-z): 스테인리스 뷔페 배식대 + 반찬 10종(디테일) + 유리 가림막 + 접시탑 + 가격표 ──
+  const czf=-ROOM_D/2+6;                                                // 배식대 z
+  addBox(60,4.5,6,lambert({color:0xc6ccd2}),0,2.25,czf);               // 카운터 몸체(등반 4.5)
+  addBox(60,0.5,6,lambert({color:0x2b2b2f}),0,4.6,czf,{collide:false}); // 검정 화강암 상판
+  // 유리 가림막(스니즈 가드): 뒤 유리 + 위 경사 유리 + 지지 기둥
+  const guard=lambert({color:0xcfe8f2,transparent:true,opacity:0.26});
+  addBox(60,5,0.15,guard,0,7.4,czf-2.7,{collide:false,sample:false});
+  addBox(60,0.25,3.2,guard,0,9.8,czf-1.1,{collide:false,sample:false});
+  addBox(60,0.25,0.25,lambert({color:0xbfc7cc}),0,9.9,czf-2.7,{collide:false,sample:false});
+  for(let gx=-28;gx<=28;gx+=14) addCyl(0.12,5,lambert({color:0x9aa2a8}),gx,7,czf-2.7,{collide:false,sample:false});
+  // 요리별 트레이 헬퍼: 스테인리스 트레이 + 베이스 마운드 + 덩어리 질감 + 고명 + 소스 + 서빙 스푼
+  const dish=(tx,base,chunk,garnish,sauce)=>{
+    addBox(5,0.6,4.6,lambert({color:0x9aa2a8}),tx,4.95,czf,{collide:false,sample:false});     // 트레이 테두리
+    addBox(4.4,0.4,4.0,lambert({color:0x6b7076}),tx,5.02,czf,{collide:false,sample:false});   // 트레이 안쪽
+    if(sauce){
+      addBox(4.2,0.4,3.8,lambert({color:base}),tx,5.3,czf,{collide:true,sample:true});         // 소스/국물 표면(트레이 크기만 충돌)
+    }else{
+      addBox(4.0,0.75,3.6,lambert({color:base}),tx,5.45,czf,{collide:true,sample:true});       // 수북한 베이스(트레이 크기만 충돌)
+      for(let k=0;k<8;k++) addBox(0.7,0.6,0.7,lambert({color:(k%2)?chunk:base}),
+        tx-1.6+(k%4)*1.05,5.8,czf-1.3+Math.floor(k/4)*1.4,{collide:false,sample:true});         // 덩어리 질감
+    }
+    if(garnish) for(let k=0;k<5;k++) addBox(0.34,0.2,0.34,lambert({color:garnish}),
+      tx-1.5+(k*0.62)%3,5.98,czf-1.4+((k*1.3)%2.8),{collide:false,sample:true});                // 고명(파슬리·깨)
+    addCyl(0.1,3.6,lambert({color:0x2b2b2f}),tx+1.4,6.3,czf-2.6,{rx:-0.5,collide:false,sample:false}); // 서빙 스푼 손잡이
+    addCyl(0.42,0.24,lambert({color:0xc7ccd2}),tx-1.2,5.55,czf+0.4,{rt:0.42,collide:false,sample:false}); // 스푼 볼
+  };
+  // [베이스, 덩어리, 고명, 소스여부] — 후라이드/크림/양파/카레/제육/브로콜리/계란말이/김치/잡채/새우튀김
+  const cafeMenu=[
+    [0xd98a3a,0xb5651d,0xF5C518,false],[0xf0e2a8,0xe8d68a,0x3f9d5a,true],
+    [0x8a4a2a,0xe8dcc8,0,false],[0xe07f3e,0xd7263d,0x3f9d5a,true],
+    [0xc0392b,0x8a2a1e,0xF5C518,false],[0x3f7d3a,0x5a9e4a,0,false],
+    [0xF5C518,0xe0b010,0,false],[0xd7263d,0xb01d30,0x3f9d5a,false],
+    [0x9a6b3f,0x7a4f2a,0xff7eb0,false],[0xe8944a,0xf5c060,0,false],
+  ];
+  const x0=-27, step=54/(cafeMenu.length-1);
+  cafeMenu.forEach((d,i)=>{ const tx=x0+i*step; dish(tx,d[0],d[1],d[2],d[3]);
+    if(i%2) addBox(1.2,0.9,0.1,lambert({color:0xffffff}),tx,5.5,czf+2.5,{collide:false,sample:false}); }); // 가격표 텐트카드
+  // 접시탑(흰 접시 무더기, 이미지 1·5) — 배식대 양끝
+  const plateStack=(x,z,n)=>{
+    for(let k=0;k<n;k++) addCyl(1.3,0.12,lambert({color:0xf4f4f4}),x,5.0+k*0.14,z,{rt:1.3,collide:false,sample:false});
+    const stackH=(n-1)*0.14+0.12, cy=5.0+(n-1)*0.14/2;
+    addCyl(1.3,stackH,lambert({color:0xf4f4f4}),x,cy,z,{rt:1.3,collide:true,sample:false});   // 접시탑 전체를 감싸는 충돌(파고들지 못하게)
+  };
+  plateStack(-30,czf-1.4,10); plateStack(30,czf-1.4,10); plateStack(30,czf+1.2,8);
+  // 소스/드레싱 스테이션(우측 끝) = 리필존
+  addBox(6,5,6,lambert({color:0xdfe4e8}),36,2.5,czf);
+  [0xd7263d,0xF5C518,0x8a5ab9].forEach((cc,i)=>addCyl(0.7,3,lambert({color:cc}),34+i*2,6,czf,{rt:0.6,collide:true,sample:true})); // 소스통(자체만 충돌)
+  refillZones.push({x:36,z:czf,r:6,yMin:0,yMax:8,label:"소스 코너"});
+  // 이동식 서빙 카트(회색 3단, 이미지 1) — 좌측 통로
+  [3.2,1.8,0.4].forEach((sy,i)=>addBox(4,0.25,3,lambert({color:i===0?0x8a9096:0xb0b6ba}),-46,sy,-8,{collide:false,sample:false}));
+  [[-1.6,-1.2],[1.6,-1.2],[-1.6,1.2],[1.6,1.2]].forEach(([lx,lz])=>addCyl(0.15,3.4,lambert({color:0x6b7076}),-46+lx,1.7,-8+lz,{collide:false,sample:false}));
+  addAABBCollider(-46,1.7,-8,4,3.4,3);                                                            // 카트 통짜 충돌
+
+  // ── 배식대 좌측: 대형 은색 국솥 2개(주황 국물) + 국자 ──
+  [[-40,-30],[-40,-20]].forEach(([px,pz])=>{
+    addCyl(3.4,5,lambert({color:0xb8bec4}),px,2.5,pz,{rt:3.4});                  // 솥
+    addCyl(2.9,0.4,lambert({color:0xe07f3e}),px,4.9,pz,{rt:2.9,collide:false,sample:true}); // 국물 표면
+    CAFE_STEAM.push({x:px,z:pz,r:3,top:12});                                    // 증기 기둥
+    CAFE_SLIP.push({x:px,z:pz,r:4});                                            // 미끄럼 존
+  });
+  CAFE_SLIP.push({x:-34,z:-25,r:4});
+  // 미끄럼 웅덩이 비주얼(반투명 주황 원판, 충돌 없음)
+  CAFE_SLIP.forEach(s=>addCyl(s.r,0.08,lambert({color:0xf59e0b,transparent:true,opacity:0.4}),
+    s.x,0.06,s.z,{rt:s.r,collide:false,sample:false}));
+
+  // ── 우측: 우유냉장고(파랑, 등반 9) + 정수기(리필) + 우유 상자 계단 ──
+  addBox(9,9,6,lambert({color:0x2f6fb0}),48,4.5,-ROOM_D/2+8);            // 냉장고(top 9)
+  addBox(9,5.5,0.4,lambert({color:0xa9d9ee,transparent:true,opacity:0.5}),48,4.6,-ROOM_D/2+11,{collide:false});
+  addBox(4,6.5,4,lambert({color:0x4A7FB5}),41,3.25,-ROOM_D/2+8,{sample:true});   // 우유상자(top 6.5)
+  addBox(4,8.3,4,lambert({color:0x6f8fd6}),44.5,4.15,-ROOM_D/2+8,{sample:true}); // 우유상자(top 8.3)
+  addCyl(2,7,lambert({color:0xdfe4e8}),52,3.5,10,{rt:2});                        // 정수기
+  addCyl(1.4,1.2,lambert({color:0x4A7FB5}),52,7.6,10,{rt:1.4,collide:false,sample:true});
+  refillZones.push({x:52,z:10,r:6,yMin:0,yMax:6,label:"정수기"});
+
+  // ── 중앙: 긴 식탁 6개(2열×3행)+일체형 의자(식탁 아래 개방=숨기) ──
+  const tabTop=lambert({color:0xe9c27a}), tabLeg=lambert({color:0xb98a4a});
+  [-16,16].forEach(tx=>[0,12,24].forEach(tz=>{
+    addBox(20,0.6,5,tabTop,tx,3.2,tz);                                   // 상판(등반 3.2)
+    [[-9,-2],[9,-2],[-9,2],[9,2]].forEach(([lx,lz])=>addBox(0.7,3.2,0.7,tabLeg,tx+lx,1.6,tz+lz));
+    [-3.4,3.4].forEach(sz=>{ addBox(20,0.5,1.6,lambert({color:0xd7a95a}),tx,1.6,tz+sz);      // 의자 좌석(등반 1.6)
+      [[-9],[9]].forEach(([lx])=>addBox(0.6,1.6,0.6,tabLeg,tx+lx,0.8,tz+sz)); });
+    // 식탁 위 소품(이미지 3): 흰 접시 + 과일 그릇(사과) + 빵 + 청록 수저 바구니
+    addCyl(1.1,0.14,lambert({color:0xf4f4f4}),tx-6,3.55,tz,{rt:1.1,collide:false,sample:false});   // 접시
+    addCyl(0.9,0.5,lambert({color:0xdfe4e8}),tx+6,3.7,tz,{rt:0.9,collide:true,sample:false});      // 과일 그릇(자체만 충돌)
+    [0x8ac33a,0xE64545,0x9bd83c].forEach((cc,i)=>addCyl(0.34,0.5,lambert({color:cc}),tx+6-0.4+i*0.4,4.0,tz,{rt:0.34,collide:false,sample:true})); // 사과
+    addBox(1.6,0.5,1.0,lambert({color:0xe8c98a}),tx,3.7,tz-1.4,{collide:true,sample:true});        // 빵(자체만 충돌)
+    addBox(1.4,0.6,0.9,lambert({color:0x2ec4b6}),tx-2,3.75,tz+1.3,{collide:true,sample:true});     // 청록 수저 바구니(자체만 충돌)
+  }));
+
+  // ── 뒤(+z): 순환 컨베이어(사각 루프) — 식판이 벨트를 따라 계속 빙 돕니다 ──
+  const beltTex=canvasTex(256,64,(g,w,h)=>{ g.fillStyle="#4a4f55";g.fillRect(0,0,w,h);
+    g.fillStyle="#f5c518";for(let i=0;i<6;i++){g.beginPath();g.moveTo(20+i*42,12);
+      g.lineTo(44+i*42,32);g.lineTo(20+i*42,52);g.closePath();g.fill();} },5,1);
+  // 식탁 뒤(z≈27.4 벤치)와 뒷벽 사이 빈 통로에 배치 — 겹침 방지
+  const b={xL:-20,xR:20,zNear:31,zFar:39,w:2.6,top:1.2,speed:6};
+  b.P=2*((b.xR-b.xL)+(b.zFar-b.zNear)); CAFE_BELT=b;
+  const bmx=(b.xL+b.xR)/2, bcz=(b.zNear+b.zFar)/2, bLx=b.xR-b.xL, bLz=b.zFar-b.zNear;
+  addBox(bLx+b.w,1.2,b.w,lambert({map:beltTex}),bmx,0.6,b.zNear);       // 앞 변(코너 포함, 등반 1.2)
+  addBox(bLx+b.w,1.2,b.w,lambert({map:beltTex}),bmx,0.6,b.zFar);        // 뒤 변(코너 포함)
+  addBox(b.w,1.2,bLz-b.w,lambert({map:beltTex}),b.xR,0.6,bcz);         // 우 변(코너 사이만 — 겹침/깨짐 방지)
+  addBox(b.w,1.2,bLz-b.w,lambert({map:beltTex}),b.xL,0.6,bcz);         // 좌 변
+  // 벨트를 따라 순환하는 식판 오브젝트 8개(장식 — 계속 빙 돔)
+  const trayCols=[0xE64545,0x3f9d5a,0x4A7FB5,0xF5C518,0xe07f3e,0x8a5ab9,0x2ec4b6,0xff7eb0];
+  for(let i=0;i<8;i++){
+    const gt=new THREE.Group();
+    const plate=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.35,1.7),lambert({color:0xd8dde2})); gt.add(plate); samplables.push(plate);
+    const food=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.45,1.0),lambert({color:trayCols[i%trayCols.length]})); food.position.y=0.35; gt.add(food); samplables.push(food);
+    mapRoot.add(gt); CAFE_TRAYS.push({mesh:gt,d0:i*b.P/8});
+  }
+  addCyl(2.4,4,lambert({color:0x3f9d5a}),-40,2,ROOM_D/2-5,{rt:2.4,sample:true}); // 잔반통(초록)
+  addBox(10,8,4,lambert({color:0x9aa2a8}),-28,4,ROOM_D/2-4);                     // 식판 수납대
+  addBox(3,6,2,lambert({color:0x8fd4c1}),34,3,ROOM_D/2-4,{sample:true});         // 손소독대
+  const menuTex=canvasTex(200,120,(g,w,h)=>{ g.fillStyle="#fff8e7";g.fillRect(0,0,w,h);
+    const cs=["#E64545","#F5C518","#3f9d5a","#4A7FB5","#e07f3e"];
+    for(let i=0;i<5;i++){g.fillStyle=cs[i];g.fillRect(10,8+i*22,w-20,18);} });
+  const menu=new THREE.Mesh(new THREE.PlaneGeometry(18,11),lambert({map:menuTex}));
+  menu.position.set(46,18,ROOM_D/2-0.4); menu.rotation.y=Math.PI; mapRoot.add(menu); samplables.push(menu);
+
+  // 증기 스프라이트(흰 반투명, 상승·소멸 반복)
+  const puff=canvasTex(64,64,(g)=>{ const gr=g.createRadialGradient(32,32,2,32,32,30);
+    gr.addColorStop(0,"rgba(255,255,255,.8)");gr.addColorStop(1,"rgba(255,255,255,0)");
+    g.fillStyle=gr;g.beginPath();g.arc(32,32,30,0,7);g.fill(); });
+  CAFE_STEAM.forEach(c=>{ for(let i=0;i<6;i++){
+    const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:puff,transparent:true,opacity:0.5,depthWrite:false}));
+    sp.scale.set(4,4,1); sp.position.set(c.x+(Math.random()-0.5)*2,5+i*1.4,c.z+(Math.random()-0.5)*2);
+    sp.userData={base:5,rng:c.top-5,col:c}; mapRoot.add(sp); CAFE_STEAM_SPR.push(sp); } });
+
+  // 스폰: 술래 3곳(식탁 구역과 배식대 사이 통로 z=-16) / 지우개는 급식대 앞 넓은 공간(z≈-20~-32)
+  seekerSpawns.push(new THREE.Vector3(-10,0,-16),new THREE.Vector3(0,0,-16),new THREE.Vector3(10,0,-16));
+  hiderSpawns=[[0,-26],[-14,-24],[14,-24],[-24,-22],[24,-22],[0,-32],
+               [-8,-20],[8,-20],[-20,-30],[20,-30],[-30,-19],[30,-19]]
+               .map(p=>new THREE.Vector3(p[0],0,p[1]));
+}
+/* 기믹 1) 미끄럼 존 — 관성 유지, 입력 방향 전환 둔화(술래·지우개 모두) */
+const Slip={vel:new THREE.Vector3(),last:new THREE.Vector3(),init:false};
+function updateSlipZones(dt){
+  if(G.screen!=="GAME"||G.role==="ghost"||G.spectating||dt<=0){ Slip.last.copy(G.pos); Slip.init=true; return; }
+  if(!Slip.init){ Slip.last.copy(G.pos); Slip.init=true; return; }
+  const vx=(G.pos.x-Slip.last.x)/dt, vz=(G.pos.z-Slip.last.z)/dt;
+  let inZone=false;
+  for(const s of CAFE_SLIP){ const dx=G.pos.x-s.x,dz=G.pos.z-s.z; if(dx*dx+dz*dz<s.r*s.r&&G.pos.y<1.2){inZone=true;break;} }
+  if(inZone){
+    Slip.vel.x=Slip.vel.x*0.985+(vx-Slip.vel.x)*0.20;   // 감쇠 0.985, 입력 가중치 20%
+    Slip.vel.z=Slip.vel.z*0.985+(vz-Slip.vel.z)*0.20;
+    moveHorizontalAxis("x",Slip.vel.x*dt*0.7);
+    moveHorizontalAxis("z",Slip.vel.z*dt*0.7);
+  }else{ Slip.vel.set(vx,0,vz); }
+  Slip.last.copy(G.pos);
+}
+/* 사각 루프 경로 위 거리 d(둘레) → 좌표·진행방향 */
+function beltPathPos(d,b){
+  const Lx=b.xR-b.xL, Lz=b.zFar-b.zNear;
+  d=((d%b.P)+b.P)%b.P;
+  if(d<Lx) return {x:b.xL+d, z:b.zNear, dx:1, dz:0};   d-=Lx;
+  if(d<Lz) return {x:b.xR, z:b.zNear+d, dx:0, dz:1};   d-=Lz;
+  if(d<Lx) return {x:b.xR-d, z:b.zFar, dx:-1, dz:0};   d-=Lx;
+  return {x:b.xL, z:b.zFar-d, dx:0, dz:-1};
+}
+/* 플레이어 위치를 사각 루프 경로에 투영 → 둘레거리 d와 경로선까지 거리 반환 */
+function beltProject(px,pz,b){
+  const Lx=b.xR-b.xL, Lz=b.zFar-b.zNear;
+  const cx=clamp(px,b.xL,b.xR), cz=clamp(pz,b.zNear,b.zFar);
+  const edges=[
+    {ex:cx,  ez:b.zNear, d:(cx-b.xL)},          // 앞 변 A→B (+x)
+    {ex:b.xR,ez:cz,      d:Lx+(cz-b.zNear)},     // 우 변 B→C (+z)
+    {ex:cx,  ez:b.zFar,  d:Lx+Lz+(b.xR-cx)},     // 뒤 변 C→D (-x)
+    {ex:b.xL,ez:cz,      d:2*Lx+Lz+(b.zFar-cz)}, // 좌 변 D→A (-z)
+  ];
+  let best=edges[0], bd=Infinity;
+  for(const e of edges){ const ddx=px-e.ex, ddz=pz-e.ez, dist=ddx*ddx+ddz*ddz; if(dist<bd){bd=dist;best=e;} }
+  return {d:best.d, dist:Math.sqrt(bd)};
+}
+/* 기믹 2) 순환 컨베이어 — 식판이 루프를 계속 돌고, 벨트 위 플레이어도 루프를 따라 코너까지 계속 실려 감 */
+function updateConveyor(dt){
+  if(!CAFE_BELT)return;
+  const b=CAFE_BELT, t=(Net.now?Net.now():Date.now())/1000;
+  // 식판 순환(항상)
+  CAFE_TRAYS.forEach(tr=>{ const p=beltPathPos(b.speed*t+tr.d0,b);
+    tr.mesh.position.set(p.x,b.top+0.35,p.z); tr.mesh.rotation.y=(p.dz!==0)?Math.PI/2:0; });
+  // 플레이어 캐리 — 경로에 투영해 접선 방향으로 이동시켜 코너에서도 돌아감
+  // (구경하기 중에도 실제 위치는 계속 벨트를 따라 움직여야 하므로 G.spectating이어도 캐리합니다)
+  if(G.screen!=="GAME"||G.role==="ghost")return;
+  if(Math.abs(G.pos.y-b.top)>0.6)return;               // 벨트 위에 서 있을 때만
+  const pr=beltProject(G.pos.x,G.pos.z,b);
+  if(pr.dist>b.w/2+0.7)return;                          // 벨트 밴드 위가 아니면 제외
+  const p0=beltPathPos(pr.d,b), p1=beltPathPos(pr.d+b.speed*dt,b);
+  moveHorizontalAxis("x",p1.x-p0.x);
+  moveHorizontalAxis("z",p1.z-p0.z);
+}
+/* 기믹 3) 김 모락모락 — 기둥 안 캐릭터(본인·원격)를 흐릿하게 + 증기 상승 */
+const Steam={dimmed:new Set()};
+function setFairyOpacity(f,o){
+  if(!f||!f.parts)return;
+  f.parts.forEach(m=>{ if(m.material&&m.material.colorWrite!==false){
+    m.material.transparent=(o<1); m.material.opacity=o; } });
+}
+function updateSteam(dt){
+  const now=new Set();
+  const test=(f)=>{ if(!f)return; const p=f.group.position;
+    for(const c of CAFE_STEAM){ const dx=p.x-c.x,dz=p.z-c.z;
+      if(dx*dx+dz*dz<c.r*c.r&&p.y<c.top){ setFairyOpacity(f,0.35); now.add(f); return; } } };
+  remotes.forEach(r=>test(r.fairy));
+  test(myFairy);
+  Steam.dimmed.forEach(f=>{ if(!now.has(f))setFairyOpacity(f,1); });
+  Steam.dimmed=now;
+  CAFE_STEAM_SPR.forEach(sp=>{ sp.position.y+=1.6*dt;
+    const u=sp.userData; const rel=(sp.position.y-u.base)/u.rng;
+    sp.material.opacity=0.55*(1-Math.min(1,Math.max(0,rel)));
+    if(rel>=1){ sp.position.y=u.base; sp.position.x=u.col.x+(Math.random()-0.5)*2; sp.position.z=u.col.z+(Math.random()-0.5)*2; } });
+}
+function steamCleanup(){ Steam.dimmed.forEach(f=>setFairyOpacity(f,1)); Steam.dimmed=new Set(); }
+
+
+=== TRYJUDGE LINES ===
+L3111: };
+L3112: 
+L3113: /* ================= 술래 판정 ================= */
+L3114: // 술래 사정거리: 조금 떨어져 있어도 잡을 수 있도록 넉넉하게 잡습니다. (2칸 더 늘림)
+L3115: const JUDGE_RANGE=13;
+L3116: const judgeRay=new THREE.Raycaster();
+L3117: const occlusionRay=new THREE.Raycaster();
+L3118: const _judgeCenter=new THREE.Vector3();
+L3119: const _judgeToTarget=new THREE.Vector3();
+L3120: const _judgeDir=new THREE.Vector3();
+L3121: 
+L3122: function isJudgeBlocked(targetPoint,targetDistance){
+L3123:   _judgeDir.copy(targetPoint).sub(camera.position);
+L3124:   const d=_judgeDir.length();
+L3125:   if(d<=0.001)return false;
+L3126:   _judgeDir.normalize();
+L3127:   occlusionRay.set(camera.position,_judgeDir);
+L3128:   occlusionRay.near=0.08;
+L3129:   occlusionRay.far=Math.max(0.08,Math.min(targetDistance,d)-0.08);
+L3130:   const obstacles=occlusionRay.intersectObjects(samplables,false);
+L3131:   return obstacles.length>0;
+L3132: }
+L3133: 
+L3134: async function tryJudge(cx,cy){
+L3135:   if(G.role!=="seeker"||G.phase!=="SEEK")return;
+L3136:   const now=performance.now();
+L3137:   if(now<G.cdUntil)return;
+L3138: 
+L3139:   pokePencil();
+L3140:   scene.updateMatrixWorld(true);
+L3141: 
+L3142:   if(cx!=null&&cy!=null){ judgeRay.setFromCamera(screenToNDC(cx,cy),camera); }
+L3143:   else{ judgeRay.setFromCamera(ndc.set(0,0),camera); }
+L3144:   judgeRay.near=0.05;
+L3145:   judgeRay.far=JUDGE_RANGE;
+L3146: 
+L3147:   const targets=[];
+L3148:   remotes.forEach((r,uid)=>{
+L3149:     if(r.info.role!=="hider"||r.info.found)return;
+L3150:     if(r.fairy.hitbox){
+L3151:       r.fairy.hitbox.userData.uid=uid;
+L3152:       r.fairy.hitbox.userData.taggable=true;
+L3153:       targets.push(r.fairy.hitbox);
+L3154:     }
+L3155:   });
+L3156: 
+L3157:   let selectedUid=null;
+L3158:   let selectedPoint=null;
+L3159:   let selectedDistance=Infinity;
+L3160:   let selectedScore=Infinity;
+L3161: 
+L3162:   // 1차: 중앙 조준선이 넓어진 전용 히트박스에 직접 닿는 경우
+L3163:   const hits=judgeRay.intersectObjects(targets,false);
+L3164:   for(const hit of hits){
+L3165:     if(hit.distance>JUDGE_RANGE)continue;
+L3166:     if(isJudgeBlocked(hit.point,hit.distance))continue;
+L3167:     selectedUid=hit.object.userData.uid;
+L3168:     selectedPoint=hit.point.clone();
+L3169:     selectedDistance=hit.distance;
+L3170:     selectedScore=0;
+L3171:     break;
+L3172:   }
+L3173: 
+L3174:   // 2차: 터치 조작 오차를 보정하는 약한 조준 보정
+L3175:   // 중앙선에서 몸 크기 정도만 벗어난 대상만 허용하며 벽 너머 판정은 불가합니다.
+L3176:   if(!selectedUid){
+L3177:     remotes.forEach((r,uid)=>{
+L3178:       if(r.info.role!=="hider"||r.info.found||!r.fairy.hitbox)return;
+L3179:       r.fairy.hitbox.getWorldPosition(_judgeCenter);
+L3180:       _judgeToTarget.copy(_judgeCenter).sub(camera.position);
+L3181:       const distance=_judgeToTarget.length();
+L3182:       if(distance<=0.05||distance>JUDGE_RANGE)return;
+L3183: 
+L3184:       _judgeToTarget.normalize();
+L3185:       const dot=clamp(_judgeToTarget.dot(judgeRay.ray.direction),-1,1);
+L3186:       const angle=Math.acos(dot);
+L3187:       const allowedAngle=Math.atan2(0.8,distance)+0.045;
+L3188:       if(angle>allowedAngle)return;
+L3189:       if(isJudgeBlocked(_judgeCenter,distance))return;
+L3190: 
+L3191:       const score=angle*4+distance*0.01;
+L3192:       if(score<selectedScore){
+L3193:         selectedUid=uid;
+L3194:         selectedPoint=_judgeCenter.clone();
+L3195:         selectedDistance=distance;
+L3196:         selectedScore=score;
+L3197:       }
+L3198:     });
+L3199:   }
+L3200: 
+L3201:   if(selectedUid){
+L3202:     // 연속 중복 transaction을 막는 짧은 성공 쿨다운
+L3203:     G.cdUntil=now+300;
+L3204:     const committed=await Net.tagFound(selectedUid,selectedPoint);
+L3205:     if(!committed){
+L3206:       G.cdUntil=now+500;
+L3207:     }
+L3208:     return;
+L3209:   }
+L3210: 
+L3211:   // 실패: 심 부러짐 + 1.5초 쿨다운
+L3212:   G.cdUntil=now+1500;
+L3213:   Audio2.sfxBreak();
+L3214:   shake();
+L3215:   const p=new THREE.Vector3();
+L3216:   p.copy(camera.position).addScaledVector(judgeRay.ray.direction,2);
+L3217:   burst(p,"#444444",5,1.5,0.35,false,0.2);
+L3218: }
+L3219: let pokeT=0;
+L3220: function pokePencil(){ pokeT=0.25; }
+L3221: function updatePencil(dt){
+L3222:   pencilFP.visible=(G.role==="seeker"&&G.phase==="SEEK"&&G.screen==="GAME");
+L3223:   if(pokeT>0){ pokeT-=dt;
+L3224:     const k=Math.sin((1-pokeT/0.25)*Math.PI);
+L3225:     pencilFP.position.z=-1.1-k*0.7; pencilFP.position.x=0.55-k*0.25;
+L3226:   }else{ pencilFP.position.z=-1.1; pencilFP.position.x=0.55; }
+L3227: }
+L3228: 
+L3229: /* ================= 입력 ================= */
+L3230: const keys={};
