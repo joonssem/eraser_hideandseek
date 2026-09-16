@@ -216,9 +216,11 @@ stateDiagram-v2
    - 프로젝트 설명 및 배포 안내: [`README.md`](file:///D:/Projects/eraser_hideandseek/README.md)
    - 서버 구축 가이드: [`guide.md`](file:///D:/Projects/eraser_hideandseek/guide.md)
    - Git 무시 파일: [`.gitignore`](file:///D:/Projects/eraser_hideandseek/.gitignore)
-3. **Git 저장소 초기화 및 커밋 완료**:
-   - `main` 브랜치 초기화 및 첫 커밋(`a40ddfb`) 완료.
-   - 원격 GitHub 레포지토리 연결 및 원클릭 푸시 준비 완료.
+3. **Git 저장소 연결 및 원격 푸시 완료**:
+   - 원격 저장소(`https://github.com/joonssem/eraser_hideandseek.git`) 연결 완료.
+   - `main` 브랜치 원격 푸시 성공 (`git push -u origin main`).
+   - GitHub Pages 최종 접속 주소 예정: `https://joonssem.github.io/eraser_hideandseek/`
+
 
 
 
