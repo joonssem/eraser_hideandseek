@@ -36,9 +36,9 @@
 
 ## 🚀 GitHub Pages 배포 방법 (초간단 1분 설정)
 
-1. **GitHub 저장소 생성 및 푸시**:
+1. **GitHub 저장소 연결 및 푸시**:
    ```bash
-   git remote add origin https://github.com/사용자아이디/저장소이름.git
+   git remote add origin https://github.com/joonssem/eraser_hideandseek.git
    git branch -M main
    git push -u origin main
    ```
@@ -48,7 +48,8 @@
    - **Build and deployment** > **Source**에서 `Deploy from a branch` 선택
    - **Branch**를 `main` 및 `/ (root)`로 선택 후 **Save** 버튼 클릭
 3. **접속**:
-   - 잠시 후 상단에 생성되는 `https://<사용자아이디>.github.io/<저장소이름>/` 주소로 접속하면 배포 완료!
+   - 배포 후 접속 주소: [https://joonssem.github.io/eraser_hideandseek/](https://joonssem.github.io/eraser_hideandseek/)
+
 
 ---
 
