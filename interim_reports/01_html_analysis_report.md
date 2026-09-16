@@ -224,6 +224,11 @@ stateDiagram-v2
    - 프로젝트 ID: `eraser-6bb35` (위치: `asia-southeast1`)
    - [`index.html`](file:///D:/Projects/eraser_hideandseek/index.html) 내 `firebaseConfig` 실제 발급 키 삽입 완료.
    - 학급 전용 멀티플레이 서버 가동 준비 100% 완료.
+5. **최종 배포 및 라이브 검증 완료**:
+   - **GitHub Pages**: [https://joonssem.github.io/eraser_hideandseek/](https://joonssem.github.io/eraser_hideandseek/) 정상 가동 (HTTP 200, 패치 반영 확인).
+   - **Firebase RTDB**: `eraser-6bb35` 연결 및 실시간 데이터 동기화(`rooms`, `presence`) 통신 확인 완료.
+   - **수업 투입 준비**: 완료.
+
 
 
 
