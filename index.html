@@ -297,6 +297,15 @@ label.chk input{width:20px;height:20px;}
 #resultBody .best{color:var(--blue);font-size:19px;}
 
 /* ===== 모바일 컨트롤 ===== */
+/* 모바일 터치/확대 방지 절대 규칙 */
+#blockOverlay, #caseGame, #caseGameArea, .crumb,
+#mobileUI, #mobileUI *, #joyBase, #joyKnob, .mbtn,
+#btnResetZoom, canvas, .screen {
+  touch-action: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
 #mobileUI{position:fixed;inset:0;z-index:35;pointer-events:none;}
 #joyBase{position:absolute;width:120px;height:120px;border-radius:50%;border:3px solid rgba(255,255,255,.6);
   background:rgba(255,255,255,.12);display:none;}
@@ -3381,12 +3390,15 @@ addEventListener("mouseup",()=>{
 renderer.domElement.addEventListener("contextmenu",e=>e.preventDefault());
 
 
-/* ── iPad / iOS Safari 제스처 줌 및 더블 탭 확대 방지 ── */
-document.addEventListener("gesturestart", e=>{e.preventDefault();}, {passive:false});
-document.addEventListener("gesturechange", e=>{e.preventDefault();}, {passive:false});
-document.addEventListener("gestureend", e=>{e.preventDefault();}, {passive:false});
+/* ── 모바일 / iPad Safari 화면 확대 절대 방지 및 자가 치유(Self-Healing) 시스템 ── */
+// 1) 제스처(핀치 줌) 및 더블클릭/더블탭 전역 캡처 차단
+window.addEventListener("dblclick", e=>{e.preventDefault();e.stopPropagation();}, {passive:false, capture:true});
+window.addEventListener("wheel", e=>{if(e.ctrlKey)e.preventDefault();}, {passive:false});
+["gesturestart","gesturechange","gestureend"].forEach(type=>{
+  document.addEventListener(type, e=>{e.preventDefault();e.stopPropagation();}, {passive:false, capture:true});
+});
 document.addEventListener("touchmove", e=>{
-  if(e.touches.length>1)e.preventDefault();
+  if(e.touches && e.touches.length>1)e.preventDefault();
 }, {passive:false});
 let _lastTouchEndTime=0;
 document.addEventListener("touchend", e=>{
@@ -3394,12 +3406,43 @@ document.addEventListener("touchend", e=>{
   if(now-_lastTouchEndTime<=320){e.preventDefault();}
   _lastTouchEndTime=now;
 }, {passive:false});
+
+// 2) 뷰포트 배율 복구 (iOS Safari 메타 태그 재설정 기법 포함)
+let _zoomFixing=false;
 function resetViewportZoom(){
+  if(_zoomFixing)return;
+  _zoomFixing=true;
   window.scrollTo(0,0);
   document.body.scrollTop=0;
   document.documentElement.scrollTop=0;
+  
+  // iOS Safari의 강제 줌 락을 푸는 메타태그 리바운스 트릭
+  const vp=document.querySelector('meta[name="viewport"]');
+  if(vp){
+    const orig=vp.content;
+    vp.content='width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover';
+    setTimeout(()=>{
+      vp.content=orig;
+      _zoomFixing=false;
+    }, 40);
+  }else{
+    _zoomFixing=false;
+  }
   onResize();
 }
+window.resetViewportZoom = resetViewportZoom;
+
+// 3) visualViewport 실시간 감시: 브라우저가 화면을 1%라도 확대하거나 스크롤하면 즉시 자동 원복
+if(window.visualViewport){
+  const checkZoom=()=>{
+    if(window.visualViewport.scale>1.02 || window.visualViewport.offsetLeft>3 || window.visualViewport.offsetTop>3){
+      resetViewportZoom();
+    }
+  };
+  window.visualViewport.addEventListener("resize", checkZoom);
+  window.visualViewport.addEventListener("scroll", checkZoom);
+}
+
 document.addEventListener("focusout", ()=>setTimeout(resetViewportZoom,120));
 const btnRZ=$("btnResetZoom");
 if(btnRZ){
@@ -3433,6 +3476,7 @@ function updateMobileButtons(){
 }
 renderer.domElement.addEventListener("pointerdown",e=>{
   if(!IS_TOUCH||G.screen!=="GAME")return;
+  e.preventDefault();
   if(G.tvMode&&G.isHost)return; // v2: TV 조망 중에는 이동 조이스틱 대신 드래그 회전만 사용
   Audio2.resume();
   if(spoitMode){
@@ -3451,7 +3495,8 @@ renderer.domElement.addEventListener("pointerdown",e=>{
     }
     return;
   }
-  if(e.clientX<innerWidth*0.45&&joyId===null){
+  const effectiveWidth=(window.visualViewport?window.visualViewport.width:innerWidth);
+  if(e.clientX<effectiveWidth*0.45&&joyId===null){
     joyId=e.pointerId; joyOrigin=[e.clientX,e.clientY];
     const jb=$("joyBase"); jb.style.display="block";
     jb.style.left=(e.clientX-60)+"px"; jb.style.top=(e.clientY-60)+"px";
@@ -3518,18 +3563,27 @@ const releaseFlightButton=e=>{
 };
 $("btnJump").addEventListener("lostpointercapture",releaseFlightButton);
 $("btnFlyDown").addEventListener("lostpointercapture",releaseFlightButton);
-$("btnJudge").onpointerdown=()=>{tryJudge();Audio2.resume();};
-$("btnMirror").onpointerdown=()=>{setMirror(true);Audio2.resume();};
-$("btnMirrorDone").onpointerdown=()=>setMirror(false);
+$("btnJudge").onpointerdown=e=>{
+  e.preventDefault(); e.stopPropagation();
+  tryJudge(); Audio2.resume();
+};
+$("btnMirror").onpointerdown=e=>{
+  e.preventDefault(); e.stopPropagation();
+  setMirror(true); Audio2.resume();
+};
+$("btnMirrorDone").onpointerdown=e=>{
+  e.preventDefault(); e.stopPropagation();
+  setMirror(false);
+};
 $("btnSpoit").onpointerdown=e=>{
-  e.stopPropagation();Audio2.resume();
+  e.preventDefault(); e.stopPropagation(); Audio2.resume();
   spoitMode=!spoitMode;
   $("btnSpoit").style.background=spoitMode?"var(--yellow)":"";
   toast(spoitMode?"💧 스포이트: 원하는 교실 부분을 터치하세요":"스포이트를 취소했어요");
 };
-$("btnPaintHold").onpointerdown=()=>{}; // 색칠 모드에서는 캐릭터를 직접 터치해 칠합니다.
-$("btnFillAll").onclick=()=>{
-  Audio2.resume();
+$("btnPaintHold").onpointerdown=e=>{ e.preventDefault(); }; // 색칠 모드에서는 캐릭터를 직접 터치해 칠합니다.
+$("btnFillAll").onclick=e=>{
+  e.preventDefault(); Audio2.resume();
   fillWholeFairy();
   // 몸 전체 칠하기 뒤에도 색칠 모드를 유지해 세부 색칠을 이어갈 수 있습니다.
   mirrorDrag=null;
@@ -3537,7 +3591,10 @@ $("btnFillAll").onclick=()=>{
   lastPaintPx=null;
   syncLocalFairy();
 };
-document.querySelectorAll(".poseCol .mbtn").forEach(b=>b.onpointerdown=()=>setPose(b.dataset.pose));
+document.querySelectorAll(".poseCol .mbtn").forEach(b=>b.onpointerdown=e=>{
+  e.preventDefault(); e.stopPropagation();
+  setPose(b.dataset.pose);
+});
 function setPose(p){
   if(G.role!=="hider"||G.found)return;
   if(p!==G.pose&&!poseFitsHere(p)){
@@ -4251,7 +4308,8 @@ function spawnCrumb(){
   let popped=false;
   const life=setTimeout(()=>{ if(!popped&&el.isConnected)el.remove(); },1100);
   el.onpointerdown=e=>{
-    e.stopPropagation(); if(popped)return; popped=true; clearTimeout(life);
+    e.preventDefault(); e.stopPropagation();
+    if(popped)return; popped=true; clearTimeout(life);
     caseGameScore++; const sc=$("caseGameScore"); if(sc)sc.textContent="✨ "+caseGameScore;
     Audio2.resume(); Audio2.sfxRefill();
     el.classList.add("pop"); setTimeout(()=>{ if(el.isConnected)el.remove(); },160);
@@ -4261,6 +4319,12 @@ function spawnCrumb(){
 function startCaseGame(){
   stopCaseGame();
   caseGameScore=0; const sc=$("caseGameScore"); if(sc)sc.textContent="✨ 0";
+  const area=$("caseGameArea");
+  if(area && !area._guarded){
+    area._guarded=true;
+    area.addEventListener("pointerdown", e=>{ e.preventDefault(); }, {passive:false});
+    area.addEventListener("touchstart", e=>{ e.preventDefault(); }, {passive:false});
+  }
   caseGameTimer=setInterval(spawnCrumb,800);
 }
 function stopCaseGame(){
@@ -4268,6 +4332,7 @@ function stopCaseGame(){
   const area=$("caseGameArea"); if(area)area.innerHTML="";
 }
 function enterPaint(){
+  resetViewportZoom();
   Audio2.resume();
   showScreen("GAME");
   foundLog=[]; G.tvMode=false; $("tvHud").classList.add("hidden"); $("tvFollowBar").classList.add("hidden");
@@ -4308,6 +4373,8 @@ function enterPaint(){
   updateMobileButtons();
 }
 function enterSeek(){
+  resetViewportZoom();
+  resetMovementInputs();
   Net.uploadTex(); // 안전망: 아직 안 올렸으면 즉시
   setMirror(false);
   stopCaseGame();

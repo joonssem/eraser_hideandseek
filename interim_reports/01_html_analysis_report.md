@@ -246,6 +246,48 @@ stateDiagram-v2
 5. **학급 칭찬 MVP 뱃지 시스템 (`awardGrid`)**:
    - 카멜레온 상, 끈기왕 상, 청소 요정 상, 매의 눈 상 결과 화면 자동 표창 연출.
 
+---
+
+## 15. 현장 긴급 피드백: 술래 화면 확대 및 방향키 조작 불가 버그 완전 해결 (v2.1.1)
+
+### 15.1 현장 이슈 보고 내용
+- **현상**: "학생 중 한 명이 술래인데 화면이 확대되어 방향키 조정을 할 수 없어서 그냥 나갔다."
+- **영향**: 술래가 조작 불가로 게임을 이탈하여 학급 수업 진행이 중단됨.
+
+### 15.2 기술적 근본 원인 정밀 규명
+1. **술래 대기 시간(숨는 시간 60초) 필통 미니게임 연타 시 더블 탭 확대**:
+   - 술래는 대기 시간 동안 `#caseGameArea`에서 지우개 똥(`.crumb`)을 터뜨리는 미니게임을 진행함.
+   - 지우개 똥을 터치하려다 빗나가거나 빈 공간을 빠른 속도로 연타할 때, `#blockOverlay`와 `#caseGameArea`에 `touch-action: none`이 누락되어 브라우저 네이티브 더블 탭 확대(Double-tap to zoom)가 발동됨.
+   - `.crumb` 요소의 `onpointerdown` 핸들러에도 `e.preventDefault()`가 누락되어 모바일 브라우저의 제스처 감지가 작동함.
+2. **술래 검거 버튼(`btnJudge` - 콕 찍기!) 연타 시 확대**:
+   - 도망자의 `btnJump`, `btnFlyDown`에는 `e.preventDefault()`가 적용되어 있었으나, 술래 전용 대형 버튼인 `btnJudge`에는 `e.preventDefault()`와 `e.stopPropagation()`이 누락되어 있었음.
+   - 술래가 도망자를 발견하고 흥분하여 콕 찍기 버튼을 연타하는 순간 브라우저가 더블 탭으로 판정하여 화면을 2~3배로 줌인함.
+3. **확대 시 조이스틱 터치 좌표 및 렌더링 이탈 (Zoom Lock)**:
+   - 브라우저 뷰포트가 확대되면 `innerWidth`와 실제 표시 영역(`visualViewport`) 간의 좌표 불일치가 발생함.
+   - 조이스틱 감지 조건(`e.clientX < innerWidth * 0.45`)이 어긋나거나 `#joyBase`가 시각적 뷰포트 바깥으로 렌더링되어 학생이 방향키를 조작할 수 없게 됨.
+4. **자가 치유(Self-Healing) 및 줌 탈출 메커니즘 부재**:
+   - 기존의 [🔄 화면 맞춤] 버튼은 화면 우측 상단 고정 요소로, 줌인이 발생하면 뷰포트 밖으로 잘려나가 학생이 누를 수 없었음.
+   - 브라우저의 `visualViewport` 스케일 변화를 실시간으로 감지하고 복구하는 감시기가 없었음.
+   - iOS 사파리에서는 단순 `window.scrollTo(0, 0)`만으로는 뷰포트 락이 풀리지 않아 메타 태그 재설정 트릭이 필요함.
+
+### 15.3 완전 해결 패치 (7계층 방어 및 자가 치유 시스템)
+1. **CSS 전역 무조건 터치 봉쇄 (`touch-action: none !important`)**:
+   - `#blockOverlay`, `#caseGame`, `#caseGameArea`, `.crumb`, `#mobileUI`, `#mobileUI *`, `#joyBase`, `#joyKnob`, `.mbtn`, `canvas` 등 모든 게임 관련 컨테이너와 버튼에 강제 적용.
+2. **모든 인터랙티브 버튼 `preventDefault()` 전수 적용**:
+   - `btnJudge`("콕 찍기!"), `btnSpoit`, `btnMirror`, `btnMirrorDone`, `poseCol .mbtn`, `.crumb`에 `e.preventDefault(); e.stopPropagation();` 철저 적용.
+   - `#caseGameArea` 빈 영역 터치에 `pointerdown`, `touchstart` 기본 동작 차단 등록.
+3. **전역 `dblclick` 및 제스처 캡처 차단**:
+   - `window.addEventListener("dblclick", ... { capture: true })`로 더블 탭 확대 완벽 무력화.
+4. **`visualViewport` 실시간 감시 및 자가 치유(Self-Healing)**:
+   - `visualViewport.scale > 1.02` 또는 오프셋 발생 시 사용자가 버튼을 누르지 않아도 **0.05초 만에 자동으로 배율 1.0 복구**.
+5. **iOS Safari 뷰포트 스케일 락 해제 메타 태그 리바운스 트릭 탑재**:
+   - `resetViewportZoom()` 호출 시 뷰포트 메타 태그를 일시 갱신하여 사파리 렌더러가 화면 배율을 즉각 강제 재계산하도록 조치.
+6. **페이즈 전환 시 자동 복구**:
+   - `enterPaint()` 및 `enterSeek()` 진입 시점에 `resetViewportZoom()` 및 `resetMovementInputs()` 자동 호출.
+7. **조이스틱 가용 너비 연동 (`effectiveWidth`)**:
+   - `visualViewport.width`를 기준으로 터치 감지 영역을 산출하여 화면 크기/배율 변화에도 좌측 조이스틱이 안정적으로 인식되도록 보정.
+
+
 
 
 
