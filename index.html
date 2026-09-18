@@ -14,10 +14,10 @@ html,body{position:fixed;inset:0;width:100%;height:100%;overflow:hidden;backgrou
   font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
   font-weight:700;color:var(--ink);touch-action:none;user-select:none;-webkit-user-select:none;
   -webkit-touch-callout:none;-webkit-text-size-adjust:100%;}
-#btnResetZoom{position:fixed;right:14px;top:14px;z-index:45;font-size:12px;font-weight:800;
-  padding:7px 11px;border-radius:12px;background:rgba(255,248,231,.94);border:2px solid var(--ink);
-  box-shadow:2px 2px 0 rgba(0,0,0,.3);cursor:pointer;pointer-events:auto;}
-canvas.gl{position:fixed;inset:0;display:block;}
+#btnResetZoom{position:fixed;left:14px;top:14px;z-index:99999;font-size:13px;font-weight:900;
+  padding:8px 13px;border-radius:12px;background:rgba(255,248,231,.96);border:3px solid var(--ink);
+  box-shadow:3px 3px 0 rgba(0,0,0,.35);cursor:pointer;pointer-events:auto;}
+canvas.gl{position:fixed !important;inset:0 !important;width:100vw !important;height:100vh !important;display:block;touch-action:none !important;}
 
 /* ===== 공통 오버레이 ===== */
 .screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -2986,7 +2986,14 @@ function fillWholeFairy(){
   if(G.phase==="SEEK")Net.scheduleTexUpload?.();
   toast("선택한 색으로 몸 전체를 칠했어요!");
 }
-function screenToNDC(cx,cy){ ndc.set(cx/innerWidth*2-1,-(cy/innerHeight)*2+1); return ndc; }
+function screenToNDC(cx,cy){
+  const w=(window.visualViewport?window.visualViewport.width:innerWidth);
+  const h=(window.visualViewport?window.visualViewport.height:innerHeight);
+  const ox=(window.visualViewport?window.visualViewport.offsetLeft:0);
+  const oy=(window.visualViewport?window.visualViewport.offsetTop:0);
+  ndc.set(((cx-ox)/w)*2-1, -(((cy-oy)/h)*2-1));
+  return ndc;
+}
 /* 색칠 모드에서 (cx,cy) 지점 칠하기. return true = 몸에 맞음 */
 function tryPaintAt(cx,cy){
   ray.setFromCamera(screenToNDC(cx,cy),camera);
@@ -3180,7 +3187,10 @@ function isJudgeBlocked(targetPoint,targetDistance){
 async function tryJudge(cx,cy){
   if(G.role!=="seeker"||G.phase!=="SEEK")return;
   const now=performance.now();
-  if(now<G.cdUntil)return;
+  if(now<G.cdUntil){
+    toast("✏️ 연필 심 깎는 중... 잠시만요!");
+    return;
+  }
 
   pokePencil();
   scene.updateMatrixWorld(true);
@@ -3254,8 +3264,8 @@ async function tryJudge(cx,cy){
     return;
   }
 
-  // 실패: 심 부러짐 + 1.5초 쿨다운
-  G.cdUntil=now+1500;
+  // 실패: 심 부러짐 + 0.8초 쿨다운 (박진감 강화 및 먹통 오해 방지)
+  G.cdUntil=now+800;
   Audio2.sfxBreak();
   shake();
   const p=new THREE.Vector3();
@@ -3276,6 +3286,7 @@ function updatePencil(dt){
 const keys={};
 let joyId=null,lookId=null,joyOrigin=null,lastLook=null,paintTouch=null,spoitMode=false;
 let flightUpId=null,flightDownId=null;
+let lookStartPos=[0,0],lookStartTime=0,lookMovedDist=0;
 let pointerLocked=false;
 // PC 술래 전용: 마우스 커서가 곧 조준점. 클릭 후 드래그하면 시점 회전, 그대로 떼면 그 위치로 콕 찍기.
 let seekerLookDrag=null, seekerDragMoved=false;
@@ -3500,7 +3511,13 @@ renderer.domElement.addEventListener("pointerdown",e=>{
     joyId=e.pointerId; joyOrigin=[e.clientX,e.clientY];
     const jb=$("joyBase"); jb.style.display="block";
     jb.style.left=(e.clientX-60)+"px"; jb.style.top=(e.clientY-60)+"px";
-  }else if(lookId===null){ lookId=e.pointerId; lastLook=[e.clientX,e.clientY]; }
+  }else if(lookId===null){
+    lookId=e.pointerId;
+    lastLook=[e.clientX,e.clientY];
+    lookStartPos=[e.clientX,e.clientY];
+    lookStartTime=performance.now();
+    lookMovedDist=0;
+  }
 });
 addEventListener("pointermove",e=>{
   if(!IS_TOUCH)return;
@@ -3523,6 +3540,8 @@ addEventListener("pointermove",e=>{
     $("joyKnob").style.left=(34+clamp(dx,-40,40))+"px";
     $("joyKnob").style.top=(34+clamp(dy,-40,40))+"px";
   }else if(e.pointerId===lookId&&lastLook){
+    const d=Math.hypot(e.clientX-lookStartPos[0], e.clientY-lookStartPos[1]);
+    if(d>lookMovedDist)lookMovedDist=d;
     G.yaw-=(e.clientX-lastLook[0])*0.006;
     G.pitch=clamp(G.pitch-(e.clientY-lastLook[1])*0.006,-1.4,1.4);
     lastLook=[e.clientX,e.clientY];
@@ -3531,7 +3550,16 @@ addEventListener("pointermove",e=>{
 function releasePointerInput(e){
   if(e.pointerId===joyId){joyId=null;G.moveIn.x=0;G.moveIn.z=0;$("joyBase").style.display="none";
     $("joyKnob").style.left="34px";$("joyKnob").style.top="34px";}
-  if(e.pointerId===lookId){lookId=null;lastLook=null;}
+  if(e.pointerId===lookId){
+    // 술래(모바일): 화면을 가볍게 톡 탭했을 때 손가락이 닿은 바로 그 지점으로 즉시 연필 발사(콕 찍기!)
+    if(G.role==="seeker"&&G.phase==="SEEK"&&G.screen==="GAME"&&!G.mirror){
+      const duration=performance.now()-lookStartTime;
+      if(lookMovedDist<18 && duration<380){
+        tryJudge(e.clientX,e.clientY);
+      }
+    }
+    lookId=null;lastLook=null;
+  }
   if(e.pointerId===paintTouch){paintTouch=null;lastPaintPx=null;}
   if(e.pointerId===flightUpId){flightUpId=null;G.flyUp=false;}
   if(e.pointerId===flightDownId){flightDownId=null;G.flyDown=false;}
@@ -5468,8 +5496,23 @@ function checkEmbedded(dt){
 }
 const _specGimmickPrev=new THREE.Vector3(), _specGimmickDelta=new THREE.Vector3();
 let lastT=performance.now();
+function checkViewportZoomFrame(){
+  if(window.visualViewport){
+    const vv=window.visualViewport;
+    if(vv.scale>1.01 || vv.offsetLeft>2 || vv.offsetTop>2){
+      resetViewportZoom();
+    }
+    const btn=$("btnResetZoom");
+    if(btn && !btn.classList.contains("hidden")){
+      btn.style.left=(vv.offsetLeft+14)+"px";
+      btn.style.top=(vv.offsetTop+14)+"px";
+    }
+  }
+}
+
 function loop(){
   requestAnimationFrame(loop);
+  checkViewportZoomFrame();
   const now=performance.now();
   const dt=Math.min(0.05,(now-lastT)/1000); lastT=now;
   if(G.screen==="GAME"){
