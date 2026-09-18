@@ -14,6 +14,11 @@ html,body{position:fixed;inset:0;width:100%;height:100%;overflow:hidden;backgrou
   font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
   font-weight:700;color:var(--ink);touch-action:none;user-select:none;-webkit-user-select:none;
   -webkit-touch-callout:none;-webkit-text-size-adjust:100%;}
+#btnTaunt{width:62px;height:62px;left:18px;bottom:80px;background:rgba(255,235,160,.95);
+  font-size:13px;font-weight:900;border:3px solid var(--ink);border-radius:50%;box-shadow:2px 2px 0 rgba(0,0,0,.3);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;cursor:pointer;pointer-events:auto;}
+#btnTaunt.hidden{display:none !important;}
+#btnTaunt.cd{opacity:.4;filter:grayscale(1);pointer-events:none;}
 #btnResetZoom{position:fixed;left:14px;top:14px;z-index:99999;font-size:13px;font-weight:900;
   padding:8px 13px;border-radius:12px;background:rgba(255,248,231,.96);border:3px solid var(--ink);
   box-shadow:3px 3px 0 rgba(0,0,0,.35);cursor:pointer;pointer-events:auto;}
@@ -685,6 +690,7 @@ if (typeof window.TEACHER_CODE === "undefined" || !window.TEACHER_CODE) window.T
 <!-- 모바일 -->
 <button id="btnResetZoom" class="hidden" aria-label="화면 맞춤">🔄 화면 맞춤</button>
 <div id="mobileUI" class="hidden">
+  <div id="btnTaunt" class="mbtn hidden" aria-label="삑삑 도발">🎵<br>삑!</div>
   <div id="joyBase"><div id="joyKnob"></div></div>
   <div class="mbtn" id="btnJump">점프</div>
   <div class="mbtn" id="btnPaintHold">칠하기</div>
@@ -777,6 +783,14 @@ const Audio2={
   sfxBreak(){ this.tone(1200,0.05,"square",0.2); this.tone(80,0.22,"sine",0.4,0.02); },
   sfxFanfare(){ const n=[523,659,784,1046,784,1046];n.forEach((f,i)=>this.tone(f,0.28,"triangle",0.3,i*0.12)); this.tone(261,1.2,"sine",0.18,0);},
   sfxStep(){ this.tone(150+Math.random()*40,0.05,"sine",0.12); },
+  sfxSqueak(dist=0){
+    if(!this.ctx||this.muted)return;
+    const d=Math.min(dist,38);
+    const vol=Math.max(0.04, 0.46*(1-d/38));
+    // 귀여운 지우개 삑삑이 (950Hz -> 1550Hz 급상승 후 1100Hz 소멸)
+    this.tone(950, 0.12, "sine", vol, 0, 1550);
+    this.tone(1550, 0.14, "sine", vol*0.78, 0.08, 1050);
+  },
   sfxJump(){ this.tone(300,0.15,"sine",0.2,0,600); },
   sfxRefill(){ this.tone(520,0.1,"sine",0.2,0,780); },
   toggleMute(){ this.init(); this.muted=!this.muted; this.master.gain.value=this.muted?0:0.5;
@@ -3282,6 +3296,106 @@ function updatePencil(dt){
   }else{ pencilFP.position.z=-1.1; pencilFP.position.x=0.55; }
 }
 
+
+/* ================= 메챠 카멜레온 오마주: 1단계 지우개 삑삑이(Auto-Whistle) & 도발 ================= */
+let _lastSqueakMark = -1;
+let _tauntCdUntil = 0;
+const _tempScrVec = new THREE.Vector3();
+
+function triggerSqueakAtFairy(pos, isSelf=false, distance=0){
+  burst(pos, "#FFF8E7", 7, 1.8, 0.55, true, 0.45);
+  burst(pos, "#F5C518", 4, 2.2, 0.45, false, 0.3);
+  Audio2.sfxSqueak(distance);
+  // 머리 위 3D 월드 좌표 -> 2D 화면 변환 텍스트
+  _tempScrVec.copy(pos); _tempScrVec.y += 1.4;
+  _tempScrVec.project(camera);
+  if(_tempScrVec.z < 1){
+    const sx = (_tempScrVec.x * 0.5 + 0.5) * innerWidth;
+    const sy = (-(_tempScrVec.y * 0.5) + 0.5) * innerHeight;
+    popText("🎵 삑!", sx, sy, "#FFF8E7");
+  }
+}
+
+// 자동 삑삑이 검사 (남은 시간 기준 30초마다)
+function updateAutoSqueak(remainMs){
+  if(G.screen !== "GAME" || G.phase !== "SEEK") {
+    _lastSqueakMark = -1;
+    return;
+  }
+  // 30초(30000ms) 단위 구간 인덱스
+  const sec = Math.max(0, Math.floor(remainMs / 1000));
+  // 90초, 60초, 30초, 10초 시점에 트리거
+  let mark = -1;
+  if(sec <= 10 && sec > 8) mark = 10;
+  else if(sec <= 30 && sec > 28) mark = 30;
+  else if(sec <= 60 && sec > 58) mark = 60;
+  else if(sec <= 90 && sec > 88) mark = 90;
+
+  if(mark > 0 && _lastSqueakMark !== mark){
+    _lastSqueakMark = mark;
+    doAllHidersSqueak();
+  }
+}
+
+function doAllHidersSqueak(){
+  Audio2.resume();
+  let minSeekerDist = Infinity;
+  const isSeeker = (G.role === "seeker");
+  const myPos = G.pos;
+
+  // 1) 내 자신이 살아있는 숨은 지우개인 경우
+  if(G.role === "hider" && !G.found && G.screen === "GAME"){
+    triggerSqueakAtFairy(myPos, true, 0);
+    toast("🤫 삑! 내 지우개에서 소리가 났어요!");
+    shake();
+  }
+
+  // 2) 원격 지우개들
+  remotes.forEach((r, uid)=>{
+    if(r.info.role === "hider" && !r.info.found && r.fairy && r.fairy.group){
+      const p = r.fairy.group.position;
+      const d = camera.position.distanceTo(p);
+      if(d < minSeekerDist) minSeekerDist = d;
+      triggerSqueakAtFairy(p, false, d);
+    }
+  });
+
+  // 술래 화면 알림
+  if(isSeeker){
+    if(minSeekerDist < 40){
+      toast("👂 삑! 어디선가 지우개 소리가 들렸어요!");
+    }
+  }
+}
+
+// 수동 도발 (Manual Taunt)
+function doManualTaunt(){
+  if(G.role !== "hider" || G.found || G.phase !== "SEEK" || G.screen !== "GAME") return;
+  const now = performance.now();
+  if(now < _tauntCdUntil){
+    toast("🎵 도발 쿨다운 중이에요...");
+    return;
+  }
+  _tauntCdUntil = now + 8000; // 8초 쿨다운
+  Audio2.resume();
+  triggerSqueakAtFairy(G.pos, true, 0);
+
+  // 주변 술래 탐지 (14m 이내에 술래가 있으면 아슬아슬 성공)
+  let nearSeeker = false;
+  remotes.forEach(r=>{
+    if(r.info.role === "seeker" && r.fairy && r.fairy.group){
+      if(camera.position.distanceTo(r.fairy.group.position) < 14) nearSeeker = true;
+    }
+  });
+  if(nearSeeker){
+    toast("🔥 대담한 도발 성공! 술래를 놀렸어요! (+50점)");
+    Audio2.sfxRefill();
+    G.tauntCount = (G.tauntCount || 0) + 1;
+  }else{
+    toast("🎵 삑! (술래를 유인했어요)");
+  }
+}
+
 /* ================= 입력 ================= */
 const keys={};
 let joyId=null,lookId=null,joyOrigin=null,lastLook=null,paintTouch=null,spoitMode=false;
@@ -3298,6 +3412,7 @@ addEventListener("keydown",e=>{
   if(G.screen!=="GAME")return;
   if(e.code==="KeyE")setMirror(!G.mirror);
   if(e.code==="KeyQ"&&G.role==="hider"&&!G.found)toggleSpoitMode();
+  if(e.code==="KeyT"&&!e.repeat)doManualTaunt();
   if(e.code==="Space"&&!e.repeat){
     if(G.spectating)G.flyUp=true;
     else handleJumpPress();
@@ -3481,6 +3596,8 @@ function updateMobileButtons(){
   $("btnFlyDown").classList.toggle("hidden",G.mirror||(!G.flying&&!G.spectating&&G.role!=="ghost"));
   $("btnPaintHold").classList.add("hidden");
   $("btnSpoit").classList.toggle("hidden",!(hidePaint));
+  const showTaunt = (G.role==="hider" && !G.found && G.phase==="SEEK" && G.screen==="GAME" && !G.mirror);
+  $("btnTaunt")?.classList.toggle("hidden", !showTaunt);
   $("btnMirror").classList.toggle("hidden",!hidePaint||G.mirror);
   document.querySelectorAll(".poseCol .mbtn").forEach(b=>b.classList.toggle("hidden",G.role==="seeker"||G.role==="ghost"||G.mirror||G.spectating));
   updateSpectatorButton();
@@ -3602,6 +3719,10 @@ $("btnMirror").onpointerdown=e=>{
 $("btnMirrorDone").onpointerdown=e=>{
   e.preventDefault(); e.stopPropagation();
   setMirror(false);
+};
+$("btnTaunt").onpointerdown=e=>{
+  e.preventDefault(); e.stopPropagation();
+  doManualTaunt();
 };
 $("btnSpoit").onpointerdown=e=>{
   e.preventDefault(); e.stopPropagation(); Audio2.resume();
@@ -4366,7 +4487,7 @@ function enterPaint(){
   foundLog=[]; G.tvMode=false; $("tvHud").classList.add("hidden"); $("tvFollowBar").classList.add("hidden");
   if(G.isHost && Net.meta && Net.meta.frozen) Net.setFrozen(false); // 숨는 시간엔 얼음 자동 해제
   resetFrozenBanner();
-  G.texUploaded=false; G.found=false; G.paint=1000; G.pose="stand"; G.lastPosSent="";
+  G.texUploaded=false; G.found=false; G.paint=1000; G.pose="stand"; G.lastPosSent=""; G.tauntCount=0;
   G.flying=false; G.flyUp=false; G.flyDown=false; G.lastJumpTap=0;G.lastFlyDownTap=0;
   G.vy=0; G.spectating=false;G.lobbyPractice=false; G.mirror&&setMirror(false);
   // 내 캔버스 초기화
@@ -4566,6 +4687,10 @@ function enterResult(){
     if(G.crumbsCollected && G.crumbsCollected > 0){
       body+=`<div class="awardCard"><span class="ico">🧹</span><div class="info"><span class="title">청소 요정 상</span><span class="name">${G.nick||"나"} (${G.crumbsCollected}개)</span></div></div>`;
     }
+    // 대담한 삑삑이 상 (술래 근처 도발 성공)
+    if(G.tauntCount && G.tauntCount > 0){
+      body+=`<div class="awardCard"><span class="ico">🎵</span><div class="info"><span class="title">대담한 삑삑이 상</span><span class="name">${G.nick||"나"} (${G.tauntCount}회)</span></div></div>`;
+    }
     // 매의 눈 상 (술래 칭찬)
     if(seekWin){
       const seekers=Object.values(Net.players||{}).filter(p=>p.role==="seeker").map(p=>p.nick);
@@ -4751,6 +4876,7 @@ function updateHUD(){
     t.classList.toggle("warn",remain>0&&remain<=10000);
     $("blockTimer").textContent=fmtTime(remain);
     if(G.phase==="SEEK"&&Music.mode==="SEEK") Music.up=(remain<=30000&&remain>0);
+    if(G.phase==="SEEK") updateAutoSqueak(remain);
     // PAINT 종료 5초 전 텍스처 업로드
     if(G.phase==="PAINT"&&remain<=5000&&remain>0&&!G.texUploaded&&G.role==="hider"){
       Net.uploadTex(); toast("📤 위장 완료! 곧 술래가 온다!");
