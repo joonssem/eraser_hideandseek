@@ -14,7 +14,7 @@ html,body{position:fixed;inset:0;width:100%;height:100%;overflow:hidden;backgrou
   font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
   font-weight:700;color:var(--ink);touch-action:none;user-select:none;-webkit-user-select:none;
   -webkit-touch-callout:none;-webkit-text-size-adjust:100%;}
-#btnTaunt{width:62px;height:62px;left:18px;bottom:80px;background:rgba(255,235,160,.95);
+#btnTaunt{width:62px;height:62px;left:calc(45% + 8px);bottom:80px;background:rgba(255,235,160,.95);
   font-size:13px;font-weight:900;border:3px solid var(--ink);border-radius:50%;box-shadow:2px 2px 0 rgba(0,0,0,.3);
   display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;cursor:pointer;pointer-events:auto;}
 #btnTaunt.hidden{display:none !important;}
@@ -335,7 +335,8 @@ label.chk input{width:20px;height:20px;}
 #mobileUI.seekerControls #btnFlyDown{right:140px;bottom:32px;}
 #mobileUI.seekerControls.flyingControls #btnJump{right:136px;bottom:116px;}
 #mobileUI.seekerControls.flyingControls #btnFlyDown{right:140px;bottom:34px;}
-.poseCol{position:absolute;left:14px;bottom:14px;display:flex;flex-direction:row;gap:7px;z-index:42;}
+/* 왼쪽 45%는 부동 이동 조이스틱 전용 공간으로 비워 둡니다. */
+.poseCol{position:absolute;left:calc(45% + 8px);bottom:14px;display:flex;flex-direction:row;gap:7px;z-index:42;}
 .poseCol .mbtn{position:relative;width:54px;height:54px;font-size:11px;}
 .pchip{position:relative;}
 .kickBtn{font-size:11px;padding:3px 7px;border-width:2px;border-radius:999px;background:#ffb0b0;box-shadow:none;margin-left:3px;}
@@ -2865,6 +2866,7 @@ function resetFrozenBanner(){
 function updateFrozenBanner(){
   const now=isFrozenNow();
   if(now&&!_wasFrozenNow){
+    resetMovementInputs();
     $("frozenBanner").classList.remove("hidden");
     if(_frozenBannerTimer)clearTimeout(_frozenBannerTimer);
     _frozenBannerTimer=setTimeout(()=>{$("frozenBanner").classList.add("hidden");_frozenBannerTimer=null;},2000);
@@ -3058,6 +3060,8 @@ let mirrorLast=null;
 function setMirror(on){
   if(on&&!(G.role==="hider"&&(G.lobbyPractice||G.phase==="PAINT"||G.phase==="SEEK")&&!G.found))return;
   if(on&&G.spectating)toggleSpectatorMode(false);
+  // 조이스틱을 누른 채 전환해도 남은 pointerId가 다음 이동을 막지 않게 합니다.
+  resetMovementInputs();
   G.mirror=on;lastPaintPx=null;
   if(on){
     // 현재 보던 방향에서 시작하되 캐릭터 방향과 카메라 회전값은 분리합니다.
@@ -3401,6 +3405,7 @@ const keys={};
 let joyId=null,lookId=null,joyOrigin=null,lastLook=null,paintTouch=null,spoitMode=false;
 let flightUpId=null,flightDownId=null;
 let lookStartPos=[0,0],lookStartTime=0,lookMovedDist=0;
+let frozenTouchNoticeAt=0;
 let pointerLocked=false;
 // PC 술래 전용: 마우스 커서가 곧 조준점. 클릭 후 드래그하면 시점 회전, 그대로 떼면 그 위치로 콕 찍기.
 let seekerLookDrag=null, seekerDragMoved=false;
@@ -3625,6 +3630,14 @@ renderer.domElement.addEventListener("pointerdown",e=>{
   }
   const effectiveWidth=(window.visualViewport?window.visualViewport.width:innerWidth);
   if(e.clientX<effectiveWidth*0.45&&joyId===null){
+    if(isFrozenNow()){
+      const now=performance.now();
+      if(now-frozenTouchNoticeAt>1500){
+        toast("🧪 선생님이 '얼음!'을 켜서 이동할 수 없어요");
+        frozenTouchNoticeAt=now;
+      }
+      return;
+    }
     joyId=e.pointerId; joyOrigin=[e.clientX,e.clientY];
     const jb=$("joyBase"); jb.style.display="block";
     jb.style.left=(e.clientX-60)+"px"; jb.style.top=(e.clientY-60)+"px";
