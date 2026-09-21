@@ -100,6 +100,12 @@ label.chk input{width:20px;height:20px;}
 .settingsRow input[type=range]{flex:1;accent-color:var(--blue);}
 .settingsVal{font-size:15px;min-width:56px;color:var(--blue);text-align:right;}
 .settingsBox.readonly input[type=range]{pointer-events:none;opacity:.6;}
+.modeCards{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px;}
+.modeCard{padding:8px 5px;border:3px solid var(--ink);border-radius:12px;background:#fff;font-size:12px;line-height:1.25;cursor:pointer;}
+.modeCard.on{background:var(--yellow);}
+.modeCard:disabled{opacity:.42;cursor:default;}
+.infectionDelayRow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px;}
+.infectionDelayRow select{font:inherit;font-weight:800;padding:6px 8px;border:2px solid var(--ink);border-radius:9px;background:#fff;}
 
 /* ===== v2: 술래 지정 칩 ===== */
 .pchip.pickable{cursor:pointer;}
@@ -167,6 +173,11 @@ label.chk input{width:20px;height:20px;}
   text-shadow:0 0 26px #ff8a00,4px 4px 0 rgba(0,0,0,.55);
   pointer-events:none;animation:frozenPulse 0.55s ease-in-out infinite;}
 #centerAlert.hidden{display:none;}
+#infectionBanner{position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);z-index:80;
+  background:rgba(230,69,69,.96);color:#fff;border:4px solid var(--ink);border-radius:18px;
+  padding:18px 28px;text-align:center;font-size:21px;box-shadow:6px 6px 0 rgba(0,0,0,.35);}
+#infectionBanner .count{display:block;font-size:46px;line-height:1;margin-top:8px;}
+#infectionBanner.hidden{display:none;}
 #lobbyPracticeBox{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;
   background:rgba(0,0,0,.5);padding:16px;pointer-events:auto;}
 #lobbyPracticeBox.hidden{display:none;}
@@ -496,6 +507,16 @@ if (typeof window.TEACHER_CODE === "undefined" || !window.TEACHER_CODE) window.T
         <input type="range" id="seekSecSlider" min="60" max="300" step="10" value="180">
         <span id="seekSecVal" class="settingsVal">3분</span>
       </div>
+      <div class="modeCards" id="gameModeCards">
+        <button class="modeCard on" data-mode="basic">🧼 베이직<br><small>잡히면 탈락</small></button>
+        <button class="modeCard" data-mode="infection">🧟 감염<br><small>잡히면 술래</small></button>
+        <button class="modeCard" data-mode="double" disabled>⚔️ 더블<br><small>준비 중</small></button>
+      </div>
+      <div id="infectionDelayRow" class="infectionDelayRow hidden">
+        <label for="infectionDelaySelect" style="min-width:0;">감염 시작</label>
+        <select id="infectionDelaySelect"><option value="0">찾기 시작 즉시</option><option value="30">30초 후</option><option value="60">60초 후</option></select>
+      </div>
+      <div id="modeHelp" class="note" style="margin-top:6px;text-align:left;">술래가 모든 지우개를 찾으면 승리합니다.</div>
     </div>
 
     <div id="playerGrid"></div>
@@ -651,6 +672,7 @@ if (typeof window.TEACHER_CODE === "undefined" || !window.TEACHER_CODE) window.T
 <!-- v2: 학생 "얼음!" 배너 -->
 <div id="frozenBanner" class="hidden">🧊 얼음!</div>
 <div id="centerAlert" class="hidden">⚡ 곧 정전!</div>
+<div id="infectionBanner" class="hidden">🧟 빨간 연필로 변신 중<span class="count" id="infectionCount">5</span></div>
 <div id="lobbyPracticeBox" class="hidden">
   <div class="lpCard">
     <h3 style="margin-bottom:6px;">🎮 기다리며 연습</h3>
@@ -2160,22 +2182,23 @@ function makeEraserCanvas(){
   g.beginPath();g.arc(64,52,7,0,Math.PI);g.lineWidth=3;g.strokeStyle="#2B2B2B";g.stroke(); // 미소
   return c;
 }
-function makePencilCanvas(){ // 술래(연필) 고정 텍스처
+function makePencilCanvas(isRed=false){ // 최초 술래(노랑) / 증식 술래(빨강) 텍스처
   const c=document.createElement("canvas");c.width=256;c.height=256;
   const g=c.getContext("2d");
-  g.fillStyle="#F5C518";g.fillRect(0,0,256,256);
+  const main=isRed?"#E64545":"#F5C518", dark=isRed?"#B82626":"#e8b90f", eraser=isRed?"#ff8080":"#ff9fc0";
+  g.fillStyle=main;g.fillRect(0,0,256,256);
   const stripe=(x0,y0,x1,y1)=>{ const w=x1-x0,h=y1-y0;
-    g.fillStyle="#F5C518";g.fillRect(x0,y0,w,h);
-    g.fillStyle="#e8b90f";for(let s=0;s<w;s+=14)g.fillRect(x0+s,y0,6,h); // 육각 줄
-    g.fillStyle="#ff9fc0";g.fillRect(x0,y0,w,h*0.18);                    // 분홍 지우개 머리
+    g.fillStyle=main;g.fillRect(x0,y0,w,h);
+    g.fillStyle=dark;for(let s=0;s<w;s+=14)g.fillRect(x0+s,y0,6,h); // 육각 줄
+    g.fillStyle=eraser;g.fillRect(x0,y0,w,h*0.18);                  // 지우개 머리
     g.fillStyle="#c9ced6";g.fillRect(x0,y0+h*0.18,w,h*0.07);             // 은색 띠
   };
   stripe(0,0,128,128); stripe(128,0,256,128);      // 앞·뒤
   stripe(0,64,64,128); stripe(64,64,128,128);      // 옆 (v.25-.5 → y64-128 구간 절반씩)
-  g.fillStyle="#ff9fc0";g.fillRect(128,64,64,64);  // 윗면 = 지우개
-  g.fillStyle="#e8b90f";g.fillRect(192,64,64,64);  // 아랫면
-  g.fillStyle="#F5C518";g.fillRect(0,192,128,64);  // 팔
-  g.fillStyle="#e8b90f";g.fillRect(128,192,128,64);// 다리
+  g.fillStyle=eraser;g.fillRect(128,64,64,64);       // 윗면 = 지우개
+  g.fillStyle=dark;g.fillRect(192,64,64,64);         // 아랫면
+  g.fillStyle=main;g.fillRect(0,192,128,64);         // 팔
+  g.fillStyle=dark;g.fillRect(128,192,128,64);       // 다리
   // 눈
   g.fillStyle="#2B2B2B";g.beginPath();g.arc(46,34,6,0,7);g.fill();
   g.beginPath();g.arc(82,34,6,0,7);g.fill();
@@ -2424,6 +2447,8 @@ const G={
   remainMs:0, phaseEndsAt:0, serverOffset:0,
   tvMode:false,                                   // v2: 선생님 TV 전체 조망 모드
   joinedMidgame:false,                            // v2: 게임 도중 합류(재입장) 시 스폰 재배치 표시
+  infected:false, infectionPending:false, infectionAnnounced:false, // v2.3: 감염 모드 상태
+  infectionTimer:null,infectionCountdownTimer:null,
 };
 let foundLog=[];  // v2: TV HUD용 최근 발견 로그 (최대 5개)
 let tvYaw=0, tvDragActive=false, tvDragStartX=0, tvDragStartYaw=0;
@@ -2437,23 +2462,29 @@ const POSE_HALF={stand:[0.32,0.22],lie:[0.32,0.55],lean:[0.32,0.3]}; // [hx,hz]
 const myFairy=buildFairy(makeEraserCanvas());
 myFairy.group.visible=false; myFairy.group.userData.baseY=0; scene.add(myFairy.group);
 /* 술래 1인칭 연필 소품 */
+let pencilBodyMat=null,pencilEraserMat=null;
 const pencilFP=(()=>{
   const gp=new THREE.Group();
-  const bodyMat=lambert({color:0xF5C518,flatShading:true});
-  gp.add(new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,2.6,6),bodyMat));
+  pencilBodyMat=lambert({color:0xF5C518,flatShading:true});
+  gp.add(new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,2.6,6),pencilBodyMat));
   const wood=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.16,0.5,6),lambert({color:0xE8CFA0,flatShading:true}));
   wood.position.y=-1.55; gp.add(wood);
   const tip=new THREE.Mesh(new THREE.CylinderGeometry(0.001,0.05,0.22,6),lambert({color:0x333333}));
   tip.position.y=-1.85; gp.add(tip);
   const ferrule=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,0.16,6),lambert({color:0xe6e6ec,flatShading:true}));
   ferrule.position.y=1.22; gp.add(ferrule);
-  const eras=new THREE.Mesh(new THREE.CylinderGeometry(0.155,0.175,0.32,6),lambert({color:0xff9fc0,flatShading:true}));
+  pencilEraserMat=lambert({color:0xff9fc0,flatShading:true});
+  const eras=new THREE.Mesh(new THREE.CylinderGeometry(0.155,0.175,0.32,6),pencilEraserMat);
   eras.position.y=1.46; gp.add(eras);
   gp.rotation.set(1.25,0,-0.35);
   gp.position.set(0.55,-0.5,-1.1);
   gp.visible=false; camera.add(gp);
   return gp;
 })();
+function setLocalPencilInfected(on){
+  if(pencilBodyMat)pencilBodyMat.color.setHex(on?0xE64545:0xF5C518);
+  if(pencilEraserMat)pencilEraserMat.color.setHex(on?0xff8080:0xff9fc0);
+}
 scene.add(camera);
 
 /* ================= 원격 플레이어 ================= */
@@ -2463,7 +2494,7 @@ function ensureRemote(uid,info){
   let r=remotes.get(uid);
   if(!r){
     const isPencil=info.role==="seeker";
-    const canvas=isPencil?makePencilCanvas():makeEraserCanvas();
+    const canvas=isPencil?makePencilCanvas(!!info.infected):makeEraserCanvas();
     const fairy=buildFairy(canvas,isPencil);
     fairy.group.userData.baseY=0;
     // 선생님(참관/ghost)은 그냥 관찰자일 뿐 교실에 몸을 갖지 않습니다.
@@ -2472,6 +2503,14 @@ function ensureRemote(uid,info){
     r={fairy,info,foundApplied:false,
        target:{x:0,y:0,z:0,ry:0,pose:"stand",flying:false},cur:{x:0,y:0,z:0,ry:0},prevX:0,prevZ:0};
     remotes.set(uid,r);
+  }
+  // 지우개가 증식 술래로 바뀌면 기존 지우개 모델을 빨간 연필 모델로 교체합니다.
+  if(r.info&&r.info.role!==info.role&&info.role==="seeker"){
+    const pos=r.fairy.group.position.clone(),rot=r.fairy.group.rotation.y,wasVisible=r.fairy.group.visible;
+    scene.remove(r.fairy.group);
+    r.fairy=buildFairy(makePencilCanvas(!!info.infected),true);
+    r.fairy.group.userData.baseY=pos.y;r.fairy.group.position.copy(pos);r.fairy.group.rotation.y=rot;
+    r.fairy.group.visible=wasVisible;scene.add(r.fairy.group);r.foundApplied=false;
   }
   r.info=info;
   if(info.role==="ghost"){ r.fairy.group.visible=false; return r; }
@@ -2487,7 +2526,7 @@ function ensureRemote(uid,info){
       g.imageSmoothingEnabled=false; g.drawImage(img,0,0,256,256); r.fairy.tex.needsUpdate=true; };
     img.src=info.tex;
   }
-  if(info.found && !r.foundApplied){ r.foundApplied=true; setFairyFound(r.fairy); }
+  if(info.role==="hider"&&info.found&&!r.foundApplied){ r.foundApplied=true; setFairyFound(r.fairy); }
   return r;
 }
 function removeRemote(uid){
@@ -3916,7 +3955,7 @@ const Net={
       set(ref(this.db,`rooms/${code}/kicks`),null),
     ]);
     await set(ref(this.db,`rooms/${code}/meta`),{host:this.uid,phase:"LOBBY",phaseEndsAt:0,round:0,
-      settings:{paintSec:60,seekSec:180},hostRole:"spectator",manualSeekers:null,mapId:"classroom",createdAt:Date.now()});
+      settings:{paintSec:60,seekSec:180,gameMode:"basic",infectionDelay:0},hostRole:"spectator",manualSeekers:null,mapId:"classroom",createdAt:Date.now()});
     await set(ref(this.db,`rooms/${code}/players/${this.uid}`),
       {nick,role:"ghost",found:false,lastSeen:serverTimestamp()});
     await set(ref(this.db,`rooms/${code}/presence/${this.uid}`),{online:true,lastSeen:serverTimestamp()});
@@ -3990,6 +4029,7 @@ const Net={
       this.players[s.key]=after;
       ensureRemote(s.key,after);
       if(!before.found&&after.found) onSomeoneFound(s.key,after);
+      if(s.key===this.uid&&before.role!==after.role&&after.role==="seeker"&&after.infected) becomeInfectedSeeker();
       onPlayersChange(s.key,"change");
     });
     onChildRemoved(pref,s=>{
@@ -4177,7 +4217,7 @@ const Net={
   /* ── v2: 로비 설정 (방장 전용) ── */
   updateSettings(patch){
     if(!G.isHost||this.mode!=="online")return;
-    const settings=Object.assign({paintSec:60,seekSec:180},this.meta.settings||{},patch);
+    const settings=Object.assign({paintSec:60,seekSec:180,gameMode:"basic",infectionDelay:0},this.meta.settings||{},patch);
     this.fb.update(this.fb.ref(this.db,`rooms/${this.code}/meta/settings`),settings).catch(()=>{});
   },
   toggleManualSeeker(uid){
@@ -4212,7 +4252,8 @@ const Net={
     this.fb.update(this.fb.ref(this.db,`rooms/${this.code}/meta`),{phaseEndsAt:now+remain}).catch(()=>{});
   },
   computeWinner(){
-    const hiders=Object.entries(this.players).filter(([u,p])=>p.role==="hider");
+    const ids=Object.keys(this.meta.hiderIds||{});
+    const hiders=ids.length?ids.map(u=>[u,this.players[u]]).filter(x=>x[1]):Object.entries(this.players).filter(([u,p])=>p.role==="hider");
     const allFound=hiders.length>0&&hiders.every(([u,p])=>p.found);
     return allFound?"seeker":"hider";
   },
@@ -4240,23 +4281,34 @@ const Net={
       const {ref,get,update,push}=this.fb;
       const players=this.players;
       const seekerIds=Object.keys(this.meta.seekerIds||{});
-      const hiders=Object.entries(players).filter(([u,p])=>p.role==="hider");
+      const initialHiderIds=Object.keys(this.meta.hiderIds||{});
+      const hiders=initialHiderIds.length?initialHiderIds.map(u=>[u,players[u]]).filter(x=>x[1]):Object.entries(players).filter(([u,p])=>p.role==="hider");
       const foundCount=hiders.filter(([u,p])=>p.found).length;
       const round=this.meta.round||0;
+      const settings=this.meta.settings||{};
+      const foundTimes=hiders.map(([u,p])=>+p.foundAt||0).filter(Boolean).sort((a,b)=>a-b);
+      const seekStart=(this.meta.phaseEndsAt||this.now())-(+settings.seekSec||180)*1000;
+      const activeSeekerIds=Object.keys(players).filter(u=>players[u]&&players[u].role==="seeker");
       const roundRec={
         ts:this.now(), round, mapId:this.meta.mapId||"classroom",
         seekerNicks:seekerIds.map(u=>(players[u]&&players[u].nick)||"?"),
         seekerCount:seekerIds.length, winner:winner||"hider",
-        foundCount, totalHiders:hiders.length
+        foundCount, totalHiders:hiders.length,
+        gameMode:settings.gameMode||"basic",infectionDelay:+settings.infectionDelay||0,
+        infectedCount:hiders.filter(([u,p])=>p.infected).length,
+        aliveAt60:this.meta.telemetry?.s60?.alive??null,
+        aliveAt120:this.meta.telemetry?.s120?.alive??null,
+        firstFoundSec:foundTimes.length?Math.max(0,Math.round((foundTimes[0]-seekStart)/1000)):null,
+        clearSec:winner==="seeker"?Math.max(0,Math.round((this.now()-seekStart)/1000)):null
       };
       const statsSnap=await get(ref(this.db,`rooms/${this.code}/stats/players`));
       const cur=statsSnap.exists()?statsSnap.val():{};
       const patch={};
       patch[`rooms/${this.code}/stats/rounds/r${round}`]=roundRec;
-      seekerIds.forEach(u=>{
+      activeSeekerIds.forEach(u=>{
         const c=cur[u]||{};
         const caught=hiders.filter(([hu,hp])=>hp.foundBy===u).length;
-        patch[`rooms/${this.code}/stats/players/${u}/seekCount`]=(c.seekCount||0)+1;
+        patch[`rooms/${this.code}/stats/players/${u}/seekCount`]=(c.seekCount||0)+(seekerIds.includes(u)?1:0);
         patch[`rooms/${this.code}/stats/players/${u}/catchCount`]=(c.catchCount||0)+caught;
         patch[`rooms/${this.code}/stats/players/${u}/nick`]=(players[u]&&players[u].nick)||c.nick||"?";
       });
@@ -4299,7 +4351,28 @@ const Net={
       this.phaseAdvanceLock=true;
       this.setPhase("SEEK",(settings.seekSec||180)*1000).finally(()=>{this.phaseAdvanceLock=false;});
     }else if(m.phase==="SEEK"){
-      const hiders=Object.entries(this.players).filter(([u,p])=>p.role==="hider");
+      const initialHiderIds=Object.keys(m.hiderIds||{});
+      const hiders=initialHiderIds.length?initialHiderIds.map(u=>[u,this.players[u]]).filter(x=>x[1]):Object.entries(this.players).filter(([u,p])=>p.role==="hider");
+      const seekSec=+(settings.seekSec||180);
+      const elapsed=Math.max(0,seekSec-Math.max(0,m.phaseEndsAt-now)/1000);
+      const telemetry=m.telemetry||{};
+      const checkpointPatch={};
+      [60,120].forEach(sec=>{
+        const key=`s${sec}`;
+        if(elapsed>=sec&&!telemetry[key]&&!this._checkpointPending?.[key]){
+          if(!this._checkpointPending)this._checkpointPending={};
+          this._checkpointPending[key]=true;
+          checkpointPatch[`telemetry/${key}`]={
+            alive:hiders.filter(([u,p])=>!p.found).length,
+            seekers:Object.values(this.players).filter(p=>p.role==="seeker").length,
+            ts:now
+          };
+        }
+      });
+      if(Object.keys(checkpointPatch).length){
+        this.fb.update(this.fb.ref(this.db,`rooms/${this.code}/meta`),checkpointPatch)
+          .finally(()=>{Object.keys(checkpointPatch).forEach(k=>{delete this._checkpointPending[k.split("/")[1]];});});
+      }
       const allFound=hiders.length>0&&hiders.every(([u,p])=>p.found);
       if(allFound||now>=m.phaseEndsAt){
         this.phaseAdvanceLock=true;
@@ -4354,7 +4427,8 @@ const Net={
       }else{
         usedRandom=true;
         const studentPool=ids.filter(u=>u!==this.uid);
-        let nSeek=Math.max(1,Math.ceil(ids.length/5));
+        const gameMode=((this.meta.settings||{}).gameMode)||"basic";
+        let nSeek=Math.max(1,Math.ceil(ids.length/(gameMode==="basic"?4:5)));
         nSeek=Math.min(nSeek,Math.max(1,Math.floor(ids.length/2)));
         let need=nSeek-(hostRole==="seeker"?1:0);
         need=Math.max(0,Math.min(need,studentPool.length));
@@ -4383,6 +4457,8 @@ const Net={
         roleUpd[`rooms/${this.code}/players/${u}/tex`]=null;
         roleUpd[`rooms/${this.code}/players/${u}/foundAt`]=null;
         roleUpd[`rooms/${this.code}/players/${u}/foundBy`]=null;
+        roleUpd[`rooms/${this.code}/players/${u}/infected`]=null;
+        roleUpd[`rooms/${this.code}/players/${u}/infectedAt`]=null;
         roleUpd[`rooms/${this.code}/pos/${u}`]=null;
         this.players[u]=Object.assign({},latestPlayers[u],{role,found:false,tex:null,foundAt:null,foundBy:null});
       });
@@ -4394,8 +4470,10 @@ const Net={
       const metaPatch={
         round:(this.meta.round||0)+1,
         seekerIds:Object.fromEntries(seekerOrder.map(u=>[u,true])),
+        hiderIds:Object.fromEntries(ids.filter(u=>!seekers.has(u)).map(u=>[u,true])),
         seekerOrder,
         winner:null,
+        telemetry:null,
         frozen:false   // v2: 새 라운드 시작 시 얼음 해제
       };
       if(usedRandom){
@@ -4501,6 +4579,7 @@ function enterPaint(){
   if(G.isHost && Net.meta && Net.meta.frozen) Net.setFrozen(false); // 숨는 시간엔 얼음 자동 해제
   resetFrozenBanner();
   G.texUploaded=false; G.found=false; G.paint=1000; G.pose="stand"; G.lastPosSent=""; G.tauntCount=0;
+  clearInfectionCountdown();G.infected=false;G.infectionPending=false;G.infectionAnnounced=false;setLocalPencilInfected(false);
   G.flying=false; G.flyUp=false; G.flyDown=false; G.lastJumpTap=0;G.lastFlyDownTap=0;
   G.vy=0; G.spectating=false;G.lobbyPractice=false; G.mirror&&setMirror(false);
   // 내 캔버스 초기화
@@ -4543,6 +4622,7 @@ function enterSeek(){
   $("blockOverlay").classList.add("hidden");
   $("paintPanel").classList.toggle("hidden",G.role!=="hider"||G.found);
   G.lastPosSent="";
+  G.infectionAnnounced=false;
   if(G.role==="seeker"){
     // v2: 다중 술래 — seekerOrder 내 내 순서에 맞는 스폰 지점에 겹치지 않게 배치
     const order=(Net.mode==="online"&&Net.meta.seekerOrder)||[];
@@ -4680,7 +4760,8 @@ function enterResult(){
   Audio2.sfxFanfare();
   let body="";
   if(Net.mode==="online"){
-    const hiders=Object.entries(Net.players).filter(([u,p])=>p.role==="hider");
+    const initialIds=Object.keys((Net.meta&&Net.meta.hiderIds)||{});
+    const hiders=initialIds.length?initialIds.map(u=>[u,Net.players[u]]).filter(x=>x[1]):Object.entries(Net.players).filter(([u,p])=>p.role==="hider");
     const survivors=hiders.filter(([u,p])=>!p.found).map(([u,p])=>p.nick);
     if(survivors.length) body+=`끝까지 살아남은 지우개: <b>${survivors.join(", ")}</b><br>`;
     let best=null;
@@ -4724,14 +4805,56 @@ function onSomeoneFound(uid,p){
     setFairyFound(r.fairy);
   }
   if(uid===Net.uid){ G.found=true;G.spectating=false;setMirror(false);
-    showRoleCard("😵 들켰다!","유령이 되어 구경하자!");
-    G.role="ghost";syncLocalFairy();updateSpectatorButton();updateMobileButtons();
+    if(infectionIsActive()){
+      startInfectionCountdown();
+    }else{
+      showRoleCard("😵 들켰다!","유령이 되어 구경하자!");
+      G.role="ghost";syncLocalFairy();updateSpectatorButton();updateMobileButtons();
+    }
   }
   Audio2.sfxFound();
   popText("찾았다!",innerWidth/2,innerHeight/2-60);
   toast(`✏️ ${p.nick} 발견!`);
   foundLog.unshift(p.nick||"?"); if(foundLog.length>5)foundLog.length=5;
   refreshIconRow();
+}
+function infectionIsActive(){
+  if(Net.mode!=="online"||G.phase!=="SEEK")return false;
+  const settings=(Net.meta&&Net.meta.settings)||{};
+  const seekSec=+settings.seekSec||180;
+  const remain=(Net.meta&&Net.meta.phaseEndsAt)?Math.max(0,Net.meta.phaseEndsAt-Net.now()):Math.max(0,G.remainMs);
+  const elapsed=seekSec-remain/1000;
+  const mode=settings.gameMode||(settings.infectionMode===true?"infection":"basic");
+  return mode==="infection"&&elapsed>=(+settings.infectionDelay||0);
+}
+function clearInfectionCountdown(){
+  if(G.infectionTimer){clearTimeout(G.infectionTimer);G.infectionTimer=null;}
+  if(G.infectionCountdownTimer){clearInterval(G.infectionCountdownTimer);G.infectionCountdownTimer=null;}
+  $("infectionBanner").classList.add("hidden");
+}
+function startInfectionCountdown(){
+  clearInfectionCountdown();
+  G.role="ghost";G.infectionPending=true;resetMovementInputs();
+  let count=5;$("infectionCount").textContent=count;$("infectionBanner").classList.remove("hidden");
+  showRoleCard("🧟 감염됐다!","5초 후 빨간 연필 술래로 합류합니다!");
+  G.infectionCountdownTimer=setInterval(()=>{count--;$("infectionCount").textContent=Math.max(0,count);},1000);
+  G.infectionTimer=setTimeout(async()=>{
+    clearInfectionCountdown();
+    if(!G.infectionPending||G.phase!=="SEEK"||Net.mode!=="online")return;
+    try{
+      await Net.fb.update(Net.fb.ref(Net.db,`rooms/${Net.code}/players/${Net.uid}`),
+        {role:"seeker",infected:true,infectedAt:Net.now()});
+      becomeInfectedSeeker();
+    }catch(err){console.error("증식 술래 전환 실패",err);toast("⚠️ 술래 변신에 실패했어요");}
+  },5000);
+}
+function becomeInfectedSeeker(){
+  if(G.role==="seeker"&&G.infected)return;
+  clearInfectionCountdown();G.infectionPending=false;G.infected=true;G.role="seeker";G.found=true;G.spectating=false;
+  resetMovementInputs();setMirror(false);setLocalPencilInfected(true);
+  showRoleCard("✏️ 빨간 연필로 변신!","남은 지우개를 술래들과 함께 찾아내자!");
+  toast("🧟 증식 술래 합류! 남은 지우개를 찾아보세요");
+  syncLocalFairy();updateSpectatorButton();updateMobileButtons();
 }
 function onPlayersChange(){ refreshLobbyGrid(); refreshIconRow(); }
 /* v3: 선생님(호스트) 노드가 잠깐 사라져도 반 전체를 튕기지 않습니다.
@@ -4813,13 +4936,25 @@ function refreshLobbyGrid(){
 /* v2: 게임 설정 슬라이더 표시/동기화 */
 function fmtMinSec(sec){ const m=Math.floor(sec/60),s=sec%60; return s?`${m}분 ${s}초`:`${m}분`; }
 function refreshLobbySettingsUI(){
-  const settings=Object.assign({paintSec:60,seekSec:180},Net.meta.settings||{});
+  const rawSettings=Net.meta.settings||{};
+  const settings=Object.assign({paintSec:60,seekSec:180,gameMode:"basic",infectionDelay:0},rawSettings);
+  if(!rawSettings.gameMode&&rawSettings.infectionMode===true)settings.gameMode="infection";
   const box=$("settingsBox");
   box.classList.toggle("readonly",!G.isHost);
   if(document.activeElement!==$("paintSecSlider")){ $("paintSecSlider").value=settings.paintSec; }
   if(document.activeElement!==$("seekSecSlider")){ $("seekSecSlider").value=settings.seekSec; }
   $("paintSecSlider").disabled=!G.isHost;
   $("seekSecSlider").disabled=!G.isHost;
+  document.querySelectorAll(".modeCard").forEach(b=>{
+    b.classList.toggle("on",b.dataset.mode===settings.gameMode);
+    if(b.dataset.mode!=="double")b.disabled=!G.isHost;
+  });
+  $("infectionDelayRow").classList.toggle("hidden",settings.gameMode!=="infection");
+  $("infectionDelaySelect").value=String(+settings.infectionDelay||0);
+  $("infectionDelaySelect").disabled=!G.isHost;
+  $("modeHelp").textContent=settings.gameMode==="infection"
+    ?"잡힌 지우개는 5초 후 빨간 연필 술래로 합류합니다."
+    :"술래가 모든 지우개를 찾으면 승리하고, 잡힌 지우개는 유령이 됩니다.";
   $("paintSecVal").textContent=fmtMinSec(+$("paintSecSlider").value);
   $("seekSecVal").textContent=fmtMinSec(+$("seekSecSlider").value);
   $("hostRoleBox").classList.toggle("hidden",!G.isHost);
@@ -4833,6 +4968,14 @@ $("paintSecSlider").addEventListener("input",e=>{
 $("seekSecSlider").addEventListener("input",e=>{
   $("seekSecVal").textContent=fmtMinSec(+e.target.value);
   if(G.isHost)Net.updateSettings({seekSec:+e.target.value});
+});
+document.querySelectorAll(".modeCard[data-mode]").forEach(b=>b.onclick=()=>{
+  if(!G.isHost||b.disabled||b.dataset.mode==="double")return;
+  const mode=b.dataset.mode;Net.updateSettings({gameMode:mode});
+  toast(mode==="infection"?"🧟 감염 모드를 선택했어요":"🧼 베이직 모드를 선택했어요");
+});
+$("infectionDelaySelect").addEventListener("change",e=>{
+  if(G.isHost)Net.updateSettings({infectionDelay:+e.target.value});
 });
 document.querySelectorAll(".hostRoleBtn").forEach(b=>b.onclick=()=>{
   Audio2.resume();
@@ -4858,7 +5001,9 @@ function escapeHtml(s){return String(s).replace(/[<>&"]/g,c=>({"<":"&lt;",">":"&
 function refreshIconRow(){
   const row=$("iconRow"); row.innerHTML="";
   if(Net.mode!=="online")return;
-  Object.entries(Net.players).filter(([u,p])=>p.role==="hider").forEach(([u,p])=>{
+  const initialIds=Object.keys((Net.meta&&Net.meta.hiderIds)||{});
+  const entries=initialIds.length?initialIds.map(u=>[u,Net.players[u]]).filter(x=>x[1]):Object.entries(Net.players).filter(([u,p])=>p.role==="hider");
+  entries.forEach(([u,p])=>{
     const d=document.createElement("div"); d.className="hicon"+(p.found?" found":""); row.appendChild(d);
   });
 }
@@ -4872,7 +5017,8 @@ function updateHUD(){
   $("timerBox").classList.toggle("hidden",G.tvMode);
   if(G.tvMode){
     $("tvTimer").textContent=(G.phase==="PAINT"||G.phase==="SEEK")?fmtTime(G.remainMs):"--:--";
-    const hidersArr=Object.values(Net.players||{}).filter(p=>p.role==="hider");
+    const initialIds=Object.keys((Net.meta&&Net.meta.hiderIds)||{});
+    const hidersArr=initialIds.length?initialIds.map(u=>Net.players[u]).filter(Boolean):Object.values(Net.players||{}).filter(p=>p.role==="hider");
     const remainN=hidersArr.filter(p=>!p.found).length;
     $("tvRemain").textContent=`남은 요정: ${remainN} / ${hidersArr.length}`;
     const logBox=$("tvLog"); logBox.innerHTML="";
@@ -4890,6 +5036,11 @@ function updateHUD(){
     $("blockTimer").textContent=fmtTime(remain);
     if(G.phase==="SEEK"&&Music.mode==="SEEK") Music.up=(remain<=30000&&remain>0);
     if(G.phase==="SEEK") updateAutoSqueak(remain);
+    if(G.phase==="SEEK"&&Net.mode==="online"&&((Net.meta.settings||{}).gameMode==="infection")){
+      const elapsed=(+(Net.meta.settings||{}).seekSec||180)-Math.max(0,remain)/1000;
+      const delay=+(Net.meta.settings||{}).infectionDelay||0;
+      if(elapsed>=delay&&!G.infectionAnnounced){G.infectionAnnounced=true;toast("🧟 감염 시작! 이제 잡힌 지우개는 빨간 연필이 됩니다");}
+    }
     // PAINT 종료 5초 전 텍스처 업로드
     if(G.phase==="PAINT"&&remain<=5000&&remain>0&&!G.texUploaded&&G.role==="hider"){
       Net.uploadTex(); toast("📤 위장 완료! 곧 술래가 온다!");
@@ -5044,8 +5195,9 @@ $("qrZoomOverlay").onclick=e=>{if(e.target===$("qrZoomOverlay"))closeQRZoom();};
 /* v2: 라운드 종료 후 로비로 돌아오면 시간 슬라이더·술래 지정을 기본값으로 되돌립니다. */
 function resetLobbyForNewRound(){
   if(!G.isHost||Net.mode!=="online")return;
+  const current=Net.meta.settings||{};
   Net.fb.update(Net.fb.ref(Net.db,`rooms/${Net.code}/meta`),
-    {settings:{paintSec:60,seekSec:180},manualSeekers:null}).catch(()=>{});
+    {settings:{paintSec:60,seekSec:180,gameMode:current.gameMode||"basic",infectionDelay:+current.infectionDelay||0},manualSeekers:null}).catch(()=>{});
 }
 /* v2: 게임 도중 입장(재입장 포함) — 로비를 거치지 않고 곧바로 지우개(요정)로 참여시킵니다.
    튕겨 나갔던 학생이 다시 들어오면 진행 중인 라운드에 바로 합류할 수 있어요. */
@@ -5393,10 +5545,13 @@ function renderStats(stats){
     html="<p class='note'>아직 기록이 없어요. 라운드를 진행하면 여기에 쌓여요!</p>";
   }else{
     if(rounds.length){
-      html+="<h3>라운드 기록</h3><table><tr><th>#</th><th>맵</th><th>술래</th><th>결과</th><th>발견</th></tr>";
+      html+="<h3>라운드 기록</h3><table><tr><th>#</th><th>모드</th><th>술래</th><th>결과</th><th>발견</th><th>60/120초 생존</th><th>첫 발견/종료</th></tr>";
       rounds.forEach(r=>{
-        html+=`<tr><td>${r.round}</td><td>${escapeHtml(MAPS[r.mapId]?.name||r.mapId||"-")}</td><td>${escapeHtml((r.seekerNicks||[]).join(", "))}</td>`
-            +`<td>${r.winner==="seeker"?"술래 승":"요정 승"}</td><td>${r.foundCount}/${r.totalHiders}</td></tr>`;
+        const mode=r.gameMode==="infection"?`감염(${r.infectionDelay||0}초)`:"베이직";
+        const timing=`${r.firstFoundSec==null?"-":r.firstFoundSec+"초"} / ${r.clearSec==null?"-":r.clearSec+"초"}`;
+        html+=`<tr><td>${r.round}</td><td>${mode}</td><td>${escapeHtml((r.seekerNicks||[]).join(", "))}</td>`
+            +`<td>${r.winner==="seeker"?"술래 승":"요정 승"}</td><td>${r.foundCount}/${r.totalHiders}${r.infectedCount?` (감염 ${r.infectedCount})`:""}</td>`
+            +`<td>${r.aliveAt60??"-"} / ${r.aliveAt120??"-"}</td><td>${timing}</td></tr>`;
       });
       html+="</table>";
     }

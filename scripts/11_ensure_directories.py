@@ -1,14 +1,15 @@
-import os
+from pathlib import Path
 
+ROOT = Path(__file__).resolve().parent.parent
 dirs = [
-    r"D:/Projects/eraser_hideandseek/primary_data",
-    r"D:/Projects/eraser_hideandseek/secondary_data",
-    r"D:/Projects/eraser_hideandseek/intermediate_results",
-    r"D:/Projects/eraser_hideandseek/visualizations",
-    r"D:/Projects/eraser_hideandseek/interim_reports",
-    r"D:/Projects/eraser_hideandseek/scripts"
+    ROOT / "primary_data",
+    ROOT / "secondary_data",
+    ROOT / "intermediate_results",
+    ROOT / "visualizations",
+    ROOT / "docs",
+    ROOT / "scripts",
 ]
 
-for d in dirs:
-    os.makedirs(d, exist_ok=True)
-    print(f"Directory ready: {d}")
+for directory in dirs:
+    directory.mkdir(parents=True, exist_ok=True)
+    print(f"Directory ready: {directory}")
