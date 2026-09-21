@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>신규 맵 독립 프리뷰·검증기 (Map Preview & Debugger)</title>
+<style>
+  :root {
+    --bg-panel: rgba(20, 24, 33, 0.92);
+    --border: rgba(255, 255, 255, 0.16);
+    --accent: #4A7FB5;
+    --yellow: #F5C518;
+    --green: #2ecc71;
+    --red: #e74c3c;
+    --text: #f0f3f6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  body, html { width: 100%; height: 100%; overflow: hidden; background: #0f1218; font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif; color: var(--text); }
+  #canvas-container { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  /* 좌측 상단 HUD 디버그 대시보드 */
+  #debug-panel {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    width: 326px;
+    background: var(--bg-panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.55);
+    z-index: 100;
+    font-size: 13px;
+  }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .header h1 { font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; color: #fff; }
+  .tag { font-size: 11px; padding: 3px 8px; border-radius: 6px; background: rgba(74, 127, 181, 0.35); color: #8ec5fc; font-weight: 700; }
+
+  /* 맵 셀렉터 */
+  .map-select-box { margin-bottom: 12px; }
+  .map-select-box select {
+    width: 100%; padding: 8px 12px; font-family: inherit; font-size: 13px; font-weight: 800;
+    border-radius: 8px; background: #1f2735; color: #fff; border: 1px solid rgba(74, 127, 181, 0.6);
+    cursor: pointer; outline: none; transition: border-color 0.2s;
+  }
+  .map-select-box select:focus { border-color: var(--yellow); }
+
+  /* 수치 테이블 */
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .stat-card { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 8px 10px; }
+  .stat-card .label { font-size: 11px; color: #9aa0a6; margin-bottom: 3px; }
+  .stat-card .val { font-size: 16px; font-weight: 800; color: #fff; }
+  .val.accent { color: var(--yellow); }
+  .val.green { color: var(--green); }
+  .val.red { color: var(--red); }
+
+  /* 토글 컨트롤 */
+  .control-group { margin-bottom: 12px; display: flex; flex-direction: column; gap: 5px; }
+  .toggle-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: rgba(0, 0, 0, 0.28); border-radius: 6px; cursor: pointer; }
+  .toggle-item:hover { background: rgba(255, 255, 255, 0.08); }
+  .toggle-item span { font-weight: 600; font-size: 12px; }
+  .toggle-item input[type=checkbox] { accent-color: var(--accent); cursor: pointer; transform: scale(1.15); }
+
+  /* 버튼 그리드 */
+  .btn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+  button {
+    font-family: inherit; font-size: 11px; font-weight: 700;
+    padding: 7px 4px; border: 1px solid var(--border); border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1); color: #fff; cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  button:hover { background: rgba(255, 255, 255, 0.22); border-color: rgba(255, 255, 255, 0.4); }
+  button:active { transform: scale(0.97); }
+  button.action { grid-column: span 3; background: var(--accent); border-color: transparent; margin-top: 4px; padding: 9px; font-size: 12px; }
+  button.action:hover { background: #3a6fa3; }
+
+  /* 안내 하단 텍스트 */
+  .guide { margin-top: 12px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); font-size: 11px; color: #80868b; line-height: 1.45; }
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+
+<!-- HUD 디버그 대시보드 -->
+<div id="debug-panel">
+  <div class="header">
+    <h1 id="map-title">🎨 미술실</h1>
+    <span class="tag" id="map-id">art_room</span>
+  </div>
+
+  <div class="map-select-box">
+    <select id="select-map">
+      <option value="art_room">🎨 미술실 (art_room)</option>
+      <option value="gymnasium">🏃 체육관 (gymnasium)</option>
+      <option value="music_room">🎹 음악실 (music_room)</option>
+    </select>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="label">벽 높이 (WALL_H)</div>
+      <div class="val accent" id="stat-wall-h">--</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">지우개(요정) 스폰</div>
+      <div class="val green" id="stat-hiders">--</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">연필(술래) 스폰</div>
+      <div class="val red" id="stat-seekers">--</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">충돌체 (AABB)</div>
+      <div class="val" id="stat-colliders">--</div>
+    </div>
+    <div class="stat-card" style="grid-column: span 2;">
+      <div class="label">스포이드 위장 대상 (samplables)</div>
+      <div class="val" id="stat-samplables">--</div>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="toggle-item">
+      <span>🟢 요정 스폰 마커 (20개)</span>
+      <input type="checkbox" id="toggle-hiders" checked>
+    </label>
+    <label class="toggle-item">
+      <span>🔴 술래 스폰 마커 (6개)</span>
+      <input type="checkbox" id="toggle-seekers" checked>
+    </label>
+    <label class="toggle-item">
+      <span>🔲 충돌체 와이어프레임 (AABB)</span>
+      <input type="checkbox" id="toggle-colliders" checked>
+    </label>
+    <label class="toggle-item">
+      <span>🧱 외벽 표시 (4면)</span>
+      <input type="checkbox" id="toggle-walls">
+    </label>
+    <label class="toggle-item">
+      <span>🏠 천장 표시 (상공 뷰 숨김)</span>
+      <input type="checkbox" id="toggle-ceiling">
+    </label>
+    <label class="toggle-item">
+      <span>💡 천장 조명 표시</span>
+      <input type="checkbox" id="toggle-lights">
+    </label>
+  </div>
+
+  <div class="btn-grid">
+    <button id="btn-view-quarter">쿼터 뷰</button>
+    <button id="btn-view-top">상공 부감</button>
+    <button id="btn-view-front">전면 뷰</button>
+    <button class="action" id="btn-reload">🔄 맵 클린업 & 재빌드 테스트</button>
+  </div>
+
+  <div class="guide">
+    • <b>시야 확보</b>: 천장/외벽 숨김은 표시만 변경하며 충돌체는 유지됩니다.<br>
+    • <b>마우스 조작</b>: 좌클릭 드래그(회전), 우클릭 드래그(팬), 휠(줌)
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+// 1. 미술실 모듈 독립 임포트
+import {
+  ART_ROOM_MAP,
+  buildArtRoom,
+  updateArtRoomGimmicks,
+  cleanupArtRoom
+} from "./art_room.js";
+
+// 2. 체육관 모듈 독립 임포트
+import {
+  GYMNASIUM_MAP,
+  buildGymnasium,
+  updateGymnasiumGimmicks,
+  cleanupGymnasium
+} from "./gymnasium.js";
+
+// 3. 음악실 모듈 독립 임포트
+import {
+  MUSIC_ROOM_MAP,
+  buildMusicRoom,
+  updateMusicRoomGimmicks,
+  cleanupMusicRoom
+} from "./music_room.js";
+
+// 지원 맵 레지스트리
+const AVAILABLE_MAPS = {
+  art_room: {
+    meta: ART_ROOM_MAP,
+    build: buildArtRoom,
+    update: updateArtRoomGimmicks,
+    cleanup: cleanupArtRoom
+  },
+  gymnasium: {
+    meta: GYMNASIUM_MAP,
+    build: buildGymnasium,
+    update: updateGymnasiumGimmicks,
+    cleanup: cleanupGymnasium
+  },
+  music_room: {
+    meta: MUSIC_ROOM_MAP,
+    build: buildMusicRoom,
+    update: updateMusicRoomGimmicks,
+    cleanup: cleanupMusicRoom
+  }
+};
+
+let currentMapKey = "art_room";
+
+// ─────────────────────────────────────────────────────────────────
+// Three.js 기본 렌더링 환경 설정
+// ─────────────────────────────────────────────────────────────────
+const container = document.getElementById("canvas-container");
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x10141c);
+
+const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.5, 600);
+camera.position.set(46, 44, 46);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+container.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI / 2 - 0.01;
+controls.minDistance = 6;
+controls.maxDistance = 280;
+controls.target.set(0, 3, 0);
+
+const ambLight = new THREE.AmbientLight(0xffffff, 0.95);
+scene.add(ambLight);
+
+const dirLight = new THREE.DirectionalLight(0xfff5e6, 1.25);
+dirLight.position.set(40, 80, 45);
+scene.add(dirLight);
+
+const dirLight2 = new THREE.DirectionalLight(0xdbe8ff, 0.65);
+dirLight2.position.set(-40, 60, -45);
+scene.add(dirLight2);
+
+// ─────────────────────────────────────────────────────────────────
+// 엔진 시뮬레이션 상태 및 컬렉션
+// ─────────────────────────────────────────────────────────────────
+const mapRoot = new THREE.Group();
+scene.add(mapRoot);
+
+const debugGroup = new THREE.Group();
+scene.add(debugGroup);
+
+const ROOM_W = 120;
+const ROOM_D = 90;
+let currentWallH = 34;
+
+const samplables = [];
+const colliders = [];
+const refillZones = [];
+const hiderSpawns = [];
+const seekerSpawns = [];
+
+let ceilingMesh = null;
+const wallMeshes = [];
+const ceilingLightMeshes = [];
+
+// ─────────────────────────────────────────────────────────────────
+// 엔진 헬퍼 함수 구현 (index.html 규격 100% 동일 구현)
+// ─────────────────────────────────────────────────────────────────
+function lambert(opt) {
+  return new THREE.MeshLambertMaterial(opt);
+}
+
+function addBox(w, h, d, mat, x, y, z, { collide = true, sample = true, ry = 0 } = {}) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  if (ry) m.rotation.y = ry;
+  m.userData.solid = !!collide;
+  mapRoot.add(m);
+  if (collide) {
+    m.updateMatrixWorld();
+    colliders.push(new THREE.Box3().setFromObject(m));
+  }
+  if (sample) samplables.push(m);
+  return m;
+}
+
+function addCyl(r, len, mat, x, y, z, { collide = true, sample = true, rz = 0, rx = 0, ry = 0, rt = r } = {}) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, r, len, 12), mat);
+  m.position.set(x, y, z);
+  m.rotation.set(rx, ry, rz);
+  m.userData.solid = !!collide;
+  mapRoot.add(m);
+  if (collide) {
+    m.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(m);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const minThickness = 0.6;
+    ["x", "y", "z"].forEach(ax => {
+      if (size[ax] < minThickness) {
+        const c = (box.min[ax] + box.max[ax]) / 2;
+        box.min[ax] = c - minThickness / 2;
+        box.max[ax] = c + minThickness / 2;
+      }
+    });
+    colliders.push(box);
+  }
+  if (sample) samplables.push(m);
+  return m;
+}
+
+function canvasTex(w, h, drawFn, repX = 1, repY = 1) {
+  const cv = document.createElement("canvas");
+  cv.width = w;
+  cv.height = h;
+  drawFn(cv.getContext("2d"), w, h);
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  if (repX !== 1 || repY !== 1) {
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(repX, repY);
+  }
+  return t;
+}
+
+function addAABBCollider(cx, cy, cz, w, h, d, pad = 0.02) {
+  colliders.push(new THREE.Box3(
+    new THREE.Vector3(cx - w / 2 - pad, cy - h / 2 - pad, cz - d / 2 - pad),
+    new THREE.Vector3(cx + w / 2 + pad, cy + h / 2 + pad, cz + d / 2 + pad)
+  ));
+}
+
+function buildRoomShell(floorMat, wallColor = 0xf0ede4, ceilColor = 0xfaf8f5, skirtColor = 0x8c7e6c) {
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  mapRoot.add(floor);
+  samplables.push(floor);
+
+  ceilingMesh = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), lambert({ color: ceilColor, side: THREE.DoubleSide }));
+  ceilingMesh.rotation.x = Math.PI / 2;
+  ceilingMesh.position.y = currentWallH;
+  ceilingMesh.visible = false;
+  mapRoot.add(ceilingMesh);
+
+  wallMeshes.length = 0;
+  const wallMat = lambert({ color: wallColor });
+  const w1 = addBox(ROOM_W, currentWallH, 2, wallMat, 0, currentWallH / 2, -ROOM_D / 2 - 1, { collide: true, sample: false });
+  const w2 = addBox(ROOM_W, currentWallH, 2, wallMat, 0, currentWallH / 2, ROOM_D / 2 + 1, { collide: true, sample: false });
+  const w3 = addBox(2, currentWallH, ROOM_D, wallMat, -ROOM_W / 2 - 1, currentWallH / 2, 0, { collide: true, sample: false });
+  const w4 = addBox(2, currentWallH, ROOM_D, wallMat, ROOM_W / 2 + 1, currentWallH / 2, 0, { collide: true, sample: false });
+  wallMeshes.push(w1, w2, w3, w4);
+  wallMeshes.forEach(w => { w.visible = false; });
+
+  const sk = lambert({ color: skirtColor });
+  addBox(ROOM_W - 1, 0.9, 0.45, sk, 0, 0.45, -ROOM_D / 2 + 0.15, { collide: false, sample: false });
+  addBox(ROOM_W - 1, 0.9, 0.45, sk, 0, 0.45, ROOM_D / 2 - 0.15, { collide: false, sample: false });
+  addBox(0.45, 0.9, ROOM_D - 1, sk, -ROOM_W / 2 + 0.15, 0.45, 0, { collide: false, sample: false });
+  addBox(0.45, 0.9, ROOM_D - 1, sk, ROOM_W / 2 - 0.15, 0.45, 0, { collide: false, sample: false });
+
+  ceilingLightMeshes.length = 0;
+  const lightMat = lambert({ color: 0xfffdf0, emissive: 0x4a4838 });
+  [-28, 0, 28].forEach(x => [-19, 19].forEach(z => {
+    const l = addBox(18, 0.35, 3.2, lightMat, x, currentWallH - 0.35, z, { collide: false, sample: false });
+    l.visible = false;
+    ceilingLightMeshes.push(l);
+  }));
+}
+
+function makeContext() {
+  return {
+    THREE,
+    mapRoot,
+    ROOM_W,
+    ROOM_D,
+    WALL_H: currentWallH,
+    setWallHeight: (h) => {
+      currentWallH = h;
+      document.getElementById("stat-wall-h").textContent = h;
+    },
+    addBox,
+    addCyl,
+    canvasTex,
+    lambert,
+    addAABBCollider,
+    buildRoomShell,
+    samplables,
+    colliders,
+    refillZones,
+    hiderSpawns,
+    seekerSpawns
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 디버그 오버레이 헬퍼 (스폰 마커, 충돌체 박스)
+// ─────────────────────────────────────────────────────────────────
+const hiderMarkersGroup = new THREE.Group();
+const seekerMarkersGroup = new THREE.Group();
+const colliderHelpersGroup = new THREE.Group();
+debugGroup.add(hiderMarkersGroup);
+debugGroup.add(seekerMarkersGroup);
+debugGroup.add(colliderHelpersGroup);
+
+function updateDebugVisuals() {
+  while (hiderMarkersGroup.children.length) {
+    const o = hiderMarkersGroup.children.pop();
+    if (o.geometry) o.geometry.dispose();
+  }
+  while (seekerMarkersGroup.children.length) {
+    const o = seekerMarkersGroup.children.pop();
+    if (o.geometry) o.geometry.dispose();
+  }
+  while (colliderHelpersGroup.children.length) {
+    const o = colliderHelpersGroup.children.pop();
+    if (o.geometry) o.geometry.dispose();
+  }
+
+  const hiderGeom = new THREE.ConeGeometry(0.85, 2.4, 8);
+  const hiderMat = new THREE.MeshBasicMaterial({ color: 0x2ecc71 });
+  hiderSpawns.forEach((sp) => {
+    const m = new THREE.Mesh(hiderGeom, hiderMat);
+    m.position.set(sp.x, 1.8, sp.z);
+    m.rotation.x = Math.PI;
+    hiderMarkersGroup.add(m);
+
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.6, 1.0, 16), new THREE.MeshBasicMaterial({ color: 0x2ecc71, side: THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(sp.x, 0.05, sp.z);
+    hiderMarkersGroup.add(ring);
+  });
+
+  const seekerGeom = new THREE.ConeGeometry(1.0, 2.8, 8);
+  const seekerMat = new THREE.MeshBasicMaterial({ color: 0xe74c3c });
+  seekerSpawns.forEach((sp) => {
+    const m = new THREE.Mesh(seekerGeom, seekerMat);
+    m.position.set(sp.x, 2.0, sp.z);
+    m.rotation.x = Math.PI;
+    seekerMarkersGroup.add(m);
+
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.8, 1.3, 16), new THREE.MeshBasicMaterial({ color: 0xe74c3c, side: THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(sp.x, 0.05, sp.z);
+    seekerMarkersGroup.add(ring);
+  });
+
+  colliders.forEach(box => {
+    const helper = new THREE.Box3Helper(box, new THREE.Color(0xff4444));
+    colliderHelpersGroup.add(helper);
+  });
+
+  document.getElementById("stat-wall-h").textContent = currentWallH;
+  document.getElementById("stat-hiders").textContent = hiderSpawns.length;
+  document.getElementById("stat-seekers").textContent = seekerSpawns.length;
+  document.getElementById("stat-colliders").textContent = colliders.length;
+  document.getElementById("stat-samplables").textContent = samplables.length;
+
+  ceilingMesh.visible = document.getElementById("toggle-ceiling").checked;
+  wallMeshes.forEach(w => { w.visible = document.getElementById("toggle-walls").checked; });
+  ceilingLightMeshes.forEach(l => { l.visible = document.getElementById("toggle-lights").checked; });
+  hiderMarkersGroup.visible = document.getElementById("toggle-hiders").checked;
+  seekerMarkersGroup.visible = document.getElementById("toggle-seekers").checked;
+  colliderHelpersGroup.visible = document.getElementById("toggle-colliders").checked;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 맵 로드 및 재빌드 실행
+// ─────────────────────────────────────────────────────────────────
+function loadMap(mapKey) {
+  // 1. 이전 맵 기믹 정리 (새 맵 키로 변경되기 전에 반드시 이전 맵의 cleanup 호출)
+  const prevDef = AVAILABLE_MAPS[currentMapKey];
+  if (prevDef && typeof prevDef.cleanup === "function") {
+    prevDef.cleanup(makeContext());
+  }
+
+  if (mapKey) currentMapKey = mapKey;
+  const currentDef = AVAILABLE_MAPS[currentMapKey];
+  if (!currentDef) return;
+
+  // 2. 맵 루트 자식 메쉬 정리
+  while (mapRoot.children.length) {
+    const obj = mapRoot.children.pop();
+    if (obj.geometry) obj.geometry.dispose();
+    if (obj.material) {
+      if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+      else obj.material.dispose();
+    }
+  }
+
+  // 3. 배열 및 참조 초기화
+  samplables.length = 0;
+  colliders.length = 0;
+  refillZones.length = 0;
+  hiderSpawns.length = 0;
+  seekerSpawns.length = 0;
+  wallMeshes.length = 0;
+  ceilingLightMeshes.length = 0;
+  ceilingMesh = null;
+
+  // 4. 헤더 타이틀 갱신
+  document.getElementById("map-title").textContent = `${currentDef.meta.icon} ${currentDef.meta.name}`;
+  document.getElementById("map-id").textContent = currentDef.meta.id;
+
+  // 5. 맵 빌드 실행
+  const ctx = makeContext();
+  currentDef.build(ctx);
+
+  // 6. 디버그 오버레이 갱신
+  updateDebugVisuals();
+
+  console.log(`[Preview] ${currentDef.meta.name} 빌드 완료 -> WallH: ${currentWallH}, Hiders: ${hiderSpawns.length}, Seekers: ${seekerSpawns.length}, Colliders: ${colliders.length}, Samplables: ${samplables.length}`);
+}
+
+// 초기 로드: 미술실
+loadMap("art_room");
+
+// ─────────────────────────────────────────────────────────────────
+// UI 이벤트 및 카메라 프리셋
+// ─────────────────────────────────────────────────────────────────
+document.getElementById("select-map").onchange = (e) => {
+  loadMap(e.target.value);
+};
+
+document.getElementById("toggle-hiders").onchange = (e) => { hiderMarkersGroup.visible = e.target.checked; };
+document.getElementById("toggle-seekers").onchange = (e) => { seekerMarkersGroup.visible = e.target.checked; };
+document.getElementById("toggle-colliders").onchange = (e) => { colliderHelpersGroup.visible = e.target.checked; };
+document.getElementById("toggle-walls").onchange = (e) => { wallMeshes.forEach(w => { w.visible = e.target.checked; }); };
+document.getElementById("toggle-ceiling").onchange = (e) => { if (ceilingMesh) ceilingMesh.visible = e.target.checked; };
+document.getElementById("toggle-lights").onchange = (e) => { ceilingLightMeshes.forEach(l => { l.visible = e.target.checked; }); };
+
+document.getElementById("btn-view-quarter").onclick = () => {
+  camera.position.set(46, Math.max(44, currentWallH * 0.95), 46);
+  controls.target.set(0, 3, 0);
+  controls.update();
+};
+
+document.getElementById("btn-view-top").onclick = () => {
+  camera.position.set(0, Math.max(95, currentWallH * 2.1), 0.1);
+  controls.target.set(0, 0, 0);
+  controls.update();
+};
+
+document.getElementById("btn-view-front").onclick = () => {
+  camera.position.set(0, Math.max(16, currentWallH * 0.35), 42);
+  controls.target.set(0, 7, -ROOM_D / 2 + 8);
+  controls.update();
+};
+
+document.getElementById("btn-reload").onclick = () => {
+  loadMap();
+};
+
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ─────────────────────────────────────────────────────────────────
+// 렌더 루프 (60fps)
+// ─────────────────────────────────────────────────────────────────
+let lastTime = performance.now();
+function animate() {
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = Math.min((now - lastTime) / 1000, 0.1);
+  lastTime = now;
+
+  controls.update();
+
+  const currentDef = AVAILABLE_MAPS[currentMapKey];
+  if (currentDef && currentDef.update) {
+    currentDef.update(makeContext(), dt);
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
