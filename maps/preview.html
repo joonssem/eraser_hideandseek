@@ -104,6 +104,8 @@
       <option value="art_room">🎨 미술실 (art_room)</option>
       <option value="gymnasium">🏃 체육관 (gymnasium)</option>
       <option value="music_room">🎹 음악실 (music_room)</option>
+      <option value="health_office">🩹 보건실 (health_office)</option>
+      <option value="care_room">🧸 돌봄교실 (care_room)</option>
     </select>
   </div>
 
@@ -198,6 +200,22 @@ import {
   cleanupMusicRoom
 } from "./music_room.js";
 
+// 4. 보건실 모듈 독립 임포트
+import {
+  HEALTH_OFFICE_MAP,
+  buildHealthOffice,
+  updateHealthOfficeGimmicks,
+  cleanupHealthOffice
+} from "./health_office.js";
+
+// 5. 돌봄교실 모듈 독립 임포트
+import {
+  CARE_ROOM_MAP,
+  buildCareRoom,
+  updateCareRoomGimmicks,
+  cleanupCareRoom
+} from "./care_room.js";
+
 // 지원 맵 레지스트리
 const AVAILABLE_MAPS = {
   art_room: {
@@ -217,6 +235,18 @@ const AVAILABLE_MAPS = {
     build: buildMusicRoom,
     update: updateMusicRoomGimmicks,
     cleanup: cleanupMusicRoom
+  },
+  health_office: {
+    meta: HEALTH_OFFICE_MAP,
+    build: buildHealthOffice,
+    update: updateHealthOfficeGimmicks,
+    cleanup: cleanupHealthOffice
+  },
+  care_room: {
+    meta: CARE_ROOM_MAP,
+    build: buildCareRoom,
+    update: updateCareRoomGimmicks,
+    cleanup: cleanupCareRoom
   }
 };
 

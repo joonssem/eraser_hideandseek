@@ -30,5 +30,7 @@
 - `TEACHER_CODE` 값을 방 만들기용 커스텀 비밀번호로 수정 후 저장
 
 ## 3. 정적 호스팅 배포
-- 파일명을 웹 표준 시작 파일인 `index.html`로 구성
-- GitHub Pages, Netlify Drop(`app.netlify.com/drop`), Cloudflare Pages 등을 이용하여 웹에 배포
+- 웹 표준 시작 파일은 `index.html`로 구성
+- 신규 맵 모듈을 불러올 수 있도록 `index.html`과 `maps/` 폴더의 상대 경로를 유지
+- GitHub Pages는 저장소 전체를 배포하고, Netlify Drop은 `index.html`과 `maps/`가 포함된 프로젝트 폴더를 업로드
+- `index.html`만 단독 업로드하거나 `file://`로 직접 열지 말고 HTTP 정적 호스팅을 사용

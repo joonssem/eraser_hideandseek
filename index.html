@@ -735,6 +735,36 @@ if (typeof window.TEACHER_CODE === "undefined" || !window.TEACHER_CODE) window.T
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+import {
+  ART_ROOM_MAP,
+  buildArtRoom,
+  updateArtRoomGimmicks,
+  cleanupArtRoom
+} from './maps/art_room.js';
+import {
+  GYMNASIUM_MAP,
+  buildGymnasium,
+  updateGymnasiumGimmicks,
+  cleanupGymnasium
+} from './maps/gymnasium.js';
+import {
+  MUSIC_ROOM_MAP,
+  buildMusicRoom,
+  updateMusicRoomGimmicks,
+  cleanupMusicRoom
+} from './maps/music_room.js';
+import {
+  HEALTH_OFFICE_MAP,
+  buildHealthOffice,
+  updateHealthOfficeGimmicks,
+  cleanupHealthOffice
+} from './maps/health_office.js';
+import {
+  CARE_ROOM_MAP,
+  buildCareRoom,
+  updateCareRoomGimmicks,
+  cleanupCareRoom
+} from './maps/care_room.js';
 
 /* ============================================================
    Firebase 설정은 이 파일 맨 위 <head>의 "선생님 설정 구역"에서 합니다.
@@ -2070,18 +2100,41 @@ function updateMapGimmicks(dt){
   if(currentMapId==="science") updateScienceLabGimmick(dt); else sciCleanup();
   if(currentMapId==="cafeteria"){ updateSlipZones(dt); updateConveyor(dt); updateSteam(dt); } else steamCleanup();
   if(currentMapId!=="library") cartCleanup(); else updateBookCarts(dt);
+  const activeDef=MAPS[currentMapId];
+  if(activeDef?.type==="module"&&typeof activeDef.update==="function"){
+    activeDef.update(makeBuildContext(),dt);
+  }
 }
 
 /* ================= v2: 멀티 맵 레지스트리 ================= */
 /* type:"canvas" = 기존처럼 코드로 그리는 맵 / type:"glb" = Blender에서 만든 glb를 base64로 내장한 맵.
    GLB가 아직 없으면 glbBase64=""로 두면 로비 카드가 자동으로 "준비중" 비활성화 상태가 됩니다. */
+function makeBuildContext(){
+  return {
+    THREE, mapRoot, ROOM_W, ROOM_D, WALL_H,
+    setWallHeight:(height)=>{ WALL_H=height; },
+    addBox, addCyl, canvasTex, lambert, addAABBCollider,
+    samplables, colliders, refillZones,
+    hiderSpawns, seekerSpawns, buildRoomShell
+  };
+}
 const MAPS={
   classroom:{ id:"classroom", name:"교실", icon:"🏫", type:"canvas", build:buildMap },
   science:{ id:"science", name:"과학실", icon:"🧪", type:"canvas", build:buildScienceLab },
   cafeteria:{ id:"cafeteria", name:"급식실", icon:"🍚", type:"canvas", build:buildCafeteria },
   library:{ id:"library", name:"도서관", icon:"📚", type:"canvas", build:buildLibrary },
+  art_room:{ ...ART_ROOM_MAP, type:"module", build:buildArtRoom, update:updateArtRoomGimmicks, cleanup:cleanupArtRoom },
+  gymnasium:{ ...GYMNASIUM_MAP, type:"module", build:buildGymnasium, update:updateGymnasiumGimmicks, cleanup:cleanupGymnasium },
+  music_room:{ ...MUSIC_ROOM_MAP, type:"module", build:buildMusicRoom, update:updateMusicRoomGimmicks, cleanup:cleanupMusicRoom },
+  health_office:{ ...HEALTH_OFFICE_MAP, type:"module", build:buildHealthOffice, update:updateHealthOfficeGimmicks, cleanup:cleanupHealthOffice },
+  care_room:{ ...CARE_ROOM_MAP, type:"module", build:buildCareRoom, update:updateCareRoomGimmicks, cleanup:cleanupCareRoom },
 };
-function mapIsReady(id){ const m=MAPS[id]; if(!m)return false; return m.type==="canvas"?true:!!(m.glbBase64&&m.glbBase64.length>100); }
+function mapIsReady(id){
+  const m=MAPS[id];
+  if(!m)return false;
+  if(m.type==="canvas"||m.type==="module")return true;
+  return !!(m.glbBase64&&m.glbBase64.length>100);
+}
 let currentMapId="classroom";
 const gltfLoader=new GLTFLoader();
 
@@ -2146,13 +2199,30 @@ function loadGLBMap(mapDef){
 /* 로비에서 고른 맵으로 실제 씬을 다시 만듭니다. classroom은 즉시 완료, GLB 맵은 비동기로 로드합니다. */
 async function buildActiveMap(mapId){
   const def=MAPS[mapId]&&mapIsReady(mapId)?MAPS[mapId]:MAPS.classroom;
-  clearMap();
-  if(def.type==="canvas"){ def.build(); }
-  else{
-    try{ await loadGLBMap(def); }
-    catch(err){ console.error("맵 로드 실패, 교실로 대체합니다:",err); clearMap(); MAPS.classroom.build(); currentMapId="classroom"; return; }
+  const previousDef=MAPS[currentMapId];
+  if(previousDef?.type==="module"&&typeof previousDef.cleanup==="function"){
+    previousDef.cleanup(makeBuildContext());
   }
-  currentMapId=def.id;
+  clearMap();
+  try{
+    if(def.type==="canvas"){
+      def.build();
+    }else if(def.type==="module"){
+      def.build(makeBuildContext());
+    }else{
+      await loadGLBMap(def);
+    }
+    currentMapId=def.id;
+  }catch(err){
+    console.error("맵 로드 실패, 교실로 대체합니다:",err);
+    if(def.type==="module"&&typeof def.cleanup==="function"){
+      try{ def.cleanup(makeBuildContext()); }
+      catch(cleanupErr){ console.warn("맵 정리 실패:",cleanupErr); }
+    }
+    clearMap();
+    MAPS.classroom.build();
+    currentMapId="classroom";
+  }
 }
 
 /* ================= 캐릭터: 지우개 (UV 아틀라스 256) ================= */
