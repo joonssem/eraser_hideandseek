@@ -48,7 +48,7 @@ function getTrackPoint(dist) {
     return {
       x: cxRight - t * straightLen,
       z: cz - radius,
-      angle: -Math.PI // 서쪽(-X) 방향
+      angle: -Math.PI / 2 // 서쪽(-X) 진행 yaw
     };
   }
   d -= straightLen;
@@ -56,12 +56,10 @@ function getTrackPoint(dist) {
   // 세그먼트 2: 서측 반원 (North -> South: Z = -4 -> 32, 중심 cxLeft, cz)
   if (d < TRACK_HALF_CIRC) {
     const t = d / TRACK_HALF_CIRC; // 0 ~ 1
-    const phi = -Math.PI / 2 - t * Math.PI; // -PI/2 -> -3PI/2
-    return {
-      x: cxLeft + Math.cos(phi) * radius,
-      z: cz - Math.sin(phi) * radius,
-      angle: phi - Math.PI / 2
-    };
+    const x = cxLeft - Math.sin(t * Math.PI) * radius;
+    const z = cz - Math.cos(t * Math.PI) * radius;
+    const angle = -Math.PI / 2 + t * Math.PI;
+    return { x, z, angle };
   }
   d -= TRACK_HALF_CIRC;
 
@@ -71,19 +69,17 @@ function getTrackPoint(dist) {
     return {
       x: cxLeft + t * straightLen,
       z: cz + radius,
-      angle: 0 // 동쪽(+X) 방향
+      angle: Math.PI / 2 // 동쪽(+X) 진행 yaw
     };
   }
   d -= straightLen;
 
   // 세그먼트 4: 동측 반원 (South -> North: Z = 32 -> -4, 중심 cxRight, cz)
   const t = d / TRACK_HALF_CIRC;
-  const phi = Math.PI / 2 - t * Math.PI; // PI/2 -> -PI/2
-  return {
-    x: cxRight + Math.cos(phi) * radius,
-    z: cz - Math.sin(phi) * radius,
-    angle: phi - Math.PI / 2
-  };
+  const x = cxRight + Math.sin(t * Math.PI) * radius;
+  const z = cz + Math.cos(t * Math.PI) * radius;
+  const angle = Math.PI / 2 + t * Math.PI;
+  return { x, z, angle };
 }
 
 // 기믹 상태 관리 (모듈 내부 격리)

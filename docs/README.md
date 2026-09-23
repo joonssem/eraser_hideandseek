@@ -48,6 +48,30 @@
    - index.html을 수정하기 전 검토한 실제 통합 지점과 적용 결과
    - 외부 ES 모듈 배포 제약, 위험 대응, 롤백 및 전체 회귀 테스트 계획
 
+10. [돌봄교실 장난감 기차 버그 분석 및 수정 계획서](./10_care_room_train_bug_analysis_and_fix_plan.md)
+    - 기차 진행 방향 왜곡(-90도 게걸음) 및 36유닛 Z축 순간이동 원인 규명
+    - 완전 연속성 보장 교정 수식 및 전수 검사 결과
+    - maps/care_room.js 수정 패치 계획
+
+11. [신규 맵 아이디어 3종 및 3D 레벨 디자인 명세서](./11_additional_map_ideas_and_level_design.md)
+
+12. [AGY 후속 작업 체크리스트 — 돌봄교실 기차 수정 및 신규 공간 3종](./12_agy_train_fix_and_new_spaces_checklist.md)
+
+13. [AGY 작업 지시서 01 — 돌봄교실 장난감 기차 궤적 수정](./13_agy_task_01_care_room_train_fix.md)
+
+별도 전달용: [AGY 시작 안내 메시지 01](./AGY_START_MESSAGE_01.md)
+
+14. [AGY 작업 지시서 02 — 시청각실 av_room 독립 모듈 구현](./14_agy_task_02_av_room.md)
+
+별도 전달용: [AGY 시작 안내 메시지 02](./AGY_START_MESSAGE_02.md)
+
+15. [AGY 작업 지시서 03 — 컴퓨터실 computer_lab 독립 모듈 구현](./15_agy_task_03_computer_lab.md)
+
+별도 전달용: [AGY 시작 안내 메시지 03](./AGY_START_MESSAGE_03.md)
+    - 시청각실 (간이 무대, 롤스크린 뒤 은신, 스타디움식 붉은 벽돌 접이식 의자)
+    - 컴퓨터실 (중앙 통로 24석 PC, 타워 본체 케이블 및 모니터 뒤 은신)
+    - 초등 도서실 확장 (알록달록 동화책 틈새, 온돌 좌식 마루, 무인 대출기 키오스크)
+
 ## 기록 원칙
 
 - 새로운 기능은 구현 전에 목적, 대상 학생, 사용 시점과 예상 난이도를 기록합니다.

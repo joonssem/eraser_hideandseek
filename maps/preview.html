@@ -106,6 +106,8 @@
       <option value="music_room">🎹 음악실 (music_room)</option>
       <option value="health_office">🩹 보건실 (health_office)</option>
       <option value="care_room">🧸 돌봄교실 (care_room)</option>
+      <option value="av_room">🎬 시청각실 (av_room)</option>
+      <option value="computer_lab">🖥️ 컴퓨터실 (computer_lab)</option>
     </select>
   </div>
 
@@ -216,6 +218,22 @@ import {
   cleanupCareRoom
 } from "./care_room.js";
 
+// 6. 시청각실 모듈 독립 임포트
+import {
+  AV_ROOM_MAP,
+  buildAvRoom,
+  updateAvRoomGimmicks,
+  cleanupAvRoom
+} from "./av_room.js";
+
+// 7. 컴퓨터실 모듈 독립 임포트
+import {
+  COMPUTER_LAB_MAP,
+  buildComputerLab,
+  updateComputerLabGimmicks,
+  cleanupComputerLab
+} from "./computer_lab.js";
+
 // 지원 맵 레지스트리
 const AVAILABLE_MAPS = {
   art_room: {
@@ -247,6 +265,18 @@ const AVAILABLE_MAPS = {
     build: buildCareRoom,
     update: updateCareRoomGimmicks,
     cleanup: cleanupCareRoom
+  },
+  av_room: {
+    meta: AV_ROOM_MAP,
+    build: buildAvRoom,
+    update: updateAvRoomGimmicks,
+    cleanup: cleanupAvRoom
+  },
+  computer_lab: {
+    meta: COMPUTER_LAB_MAP,
+    build: buildComputerLab,
+    update: updateComputerLabGimmicks,
+    cleanup: cleanupComputerLab
   }
 };
 
@@ -449,19 +479,44 @@ debugGroup.add(hiderMarkersGroup);
 debugGroup.add(seekerMarkersGroup);
 debugGroup.add(colliderHelpersGroup);
 
+function clearThreeGroup(group) {
+  const disposedGeoms = new Set();
+  const disposedMats = new Set();
+
+  function disposeNode(obj) {
+    if (obj.children && obj.children.length > 0) {
+      while (obj.children.length > 0) {
+        const child = obj.children[obj.children.length - 1];
+        obj.remove(child);
+        disposeNode(child);
+      }
+    }
+    if (obj.geometry && typeof obj.geometry.dispose === "function" && !disposedGeoms.has(obj.geometry)) {
+      disposedGeoms.add(obj.geometry);
+      obj.geometry.dispose();
+    }
+    if (obj.material) {
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      for (const m of mats) {
+        if (m && typeof m.dispose === "function" && !disposedMats.has(m)) {
+          disposedMats.add(m);
+          m.dispose();
+        }
+      }
+    }
+  }
+
+  while (group.children.length > 0) {
+    const obj = group.children[group.children.length - 1];
+    group.remove(obj);
+    disposeNode(obj);
+  }
+}
+
 function updateDebugVisuals() {
-  while (hiderMarkersGroup.children.length) {
-    const o = hiderMarkersGroup.children.pop();
-    if (o.geometry) o.geometry.dispose();
-  }
-  while (seekerMarkersGroup.children.length) {
-    const o = seekerMarkersGroup.children.pop();
-    if (o.geometry) o.geometry.dispose();
-  }
-  while (colliderHelpersGroup.children.length) {
-    const o = colliderHelpersGroup.children.pop();
-    if (o.geometry) o.geometry.dispose();
-  }
+  clearThreeGroup(hiderMarkersGroup);
+  clearThreeGroup(seekerMarkersGroup);
+  clearThreeGroup(colliderHelpersGroup);
 
   const hiderGeom = new THREE.ConeGeometry(0.85, 2.4, 8);
   const hiderMat = new THREE.MeshBasicMaterial({ color: 0x2ecc71 });
@@ -524,15 +579,8 @@ function loadMap(mapKey) {
   const currentDef = AVAILABLE_MAPS[currentMapKey];
   if (!currentDef) return;
 
-  // 2. 맵 루트 자식 메쉬 정리
-  while (mapRoot.children.length) {
-    const obj = mapRoot.children.pop();
-    if (obj.geometry) obj.geometry.dispose();
-    if (obj.material) {
-      if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
-      else obj.material.dispose();
-    }
-  }
+  // 2. 맵 루트 자식 메쉬 정리 (부모 참조 해제 및 공유 리소스 중복 dispose 방지)
+  clearThreeGroup(mapRoot);
 
   // 3. 배열 및 참조 초기화
   samplables.length = 0;
