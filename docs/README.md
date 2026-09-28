@@ -72,6 +72,22 @@
     - 컴퓨터실 (중앙 통로 24석 PC, 타워 본체 케이블 및 모니터 뒤 은신)
     - 초등 도서실 확장 (알록달록 동화책 틈새, 온돌 좌식 마루, 무인 대출기 키오스크)
 
+16. [AGY 작업 지시서 04 — 초등 도서실 library_elem 독립 모듈 구현](./16_agy_task_04_elementary_library.md)
+
+별도 전달용: [AGY 시작 안내 메시지 04](./AGY_START_MESSAGE_04.md)
+
+17. [AGY 작업 지시서 05 — 신규 맵 3종 문서 정리 및 정식 통합 준비](./17_agy_task_05_documentation_and_integration_preparation.md)
+
+별도 전달용: [AGY 시작 안내 메시지 05](./AGY_START_MESSAGE_05.md)
+
+18. [신규 맵 3종 정식 통합 제안서 및 롤백 계획](./18_followup_maps_integration_proposal.md)
+
+19. [AGY 작업 지시서 06 — 신규 맵 3종 정식 통합](./19_agy_task_06_followup_maps_integration.md)
+
+별도 전달용: [AGY 시작 안내 메시지 06](./AGY_START_MESSAGE_06.md)
+
+20. [신규 공간 3종 후속 작업 완료 보고 — 2026-09-28](./20_followup_maps_completion_report_2026-09-28.md)
+
 ## 기록 원칙
 
 - 새로운 기능은 구현 전에 목적, 대상 학생, 사용 시점과 예상 난이도를 기록합니다.

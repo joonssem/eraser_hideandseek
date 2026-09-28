@@ -109,3 +109,24 @@ export function cleanupArtRoom(ctx) {
 5. **돌봄교실 (`care_room.js`)**: 안전 매트, 블록 놀이장, 미니 인디언텐트, 순환 장난감 기차
 6. **시청각실 (`av_room.js`)**: 70×25 원목 무대, 롤스크린 뒤 1.8-unit 은신 통로, 스타디움식 6단 좌석 60석, 붉은 접이식 의자, 흡음재 벽면, 이중 방음문, 천장 빔프로젝터 광선 연출
 7. **컴퓨터실 (`computer_lab.js`)**: 중앙 통로 폭 18 units, 학생 PC 24석(좌12, 우12), 16:9 슬림 모니터 스탠드 뒤 은신, 타워 본체 케이블 뭉치, 갈색 목재 책상, 바퀴의자, 전면 프로젝터 스크린
+8. **초등 도서실 (`library_elem.js`)**: 높이 2.8~3.2 units 낮은 서가 및 다채로운 책등 위장, 실제 접근 가능한 빈 책 슬롯(10개소), 온돌 좌식 마루·원형탁자·쿠션, 일반 열람 테이블·의자 4세트, 창가 카운터 바·하이체어, 민트·화이트 스마트 무인 대출·반납기 2대, 사서데스크 리필존
+
+---
+
+## 5. 신규 독립 맵 3종 상세 명세 및 계약 요약
+
+| 항목 | 시청각실 (`av_room.js`) | 컴퓨터실 (`computer_lab.js`) | 초등 도서실 (`library_elem.js`) |
+| :--- | :--- | :--- | :--- |
+| **맵 ID / 이름** | `av_room` / 🎬 시청각실 | `computer_lab` / 🖥️ 컴퓨터실 | `library_elem` / 📚 초등 도서실 |
+| **벽 높이 (`WALL_H`)** | `30` (`setWallHeight(30)`) | `26` (`setWallHeight(26)`) | `28` (`setWallHeight(28)`) |
+| **스폰 규격** | 지우개 20개 / 술래 6개 (y=0) | 지우개 20개 / 술래 6개 (y=0) | 지우개 20개 / 술래 6개 (y=0) |
+| **리필존** | 1개소 (`음향조정실`, r=6.5) | 1개소 (`교사연구대`, r=6.0) | 1개소 (`사서데스크`, r=6.0) |
+| **충돌체 / Samplables** | 28개 (전용 24 + 외벽 4) / 151개 | 126개 (전용 122 + 외벽 4) / 271개 | 81개 (전용 77 + 외벽 4) / 364개 |
+| **메쉬 수** | 총 404개 | 총 398개 | 총 414개 (전용 398 + 룸셸 16) |
+| **필수 4대 Export** | `AV_ROOM_MAP`<br>`buildAvRoom`<br>`updateAvRoomGimmicks`<br>`cleanupAvRoom` | `COMPUTER_LAB_MAP`<br>`buildComputerLab`<br>`updateComputerLabGimmicks`<br>`cleanupComputerLab` | `LIBRARY_ELEM_MAP`<br>`buildLibraryElem`<br>`updateLibraryElemGimmicks`<br>`cleanupLibraryElem` |
+| **대표 오브젝트** | 70×25 원목 무대, 롤스크린 뒤 1.8-unit 은신 통로, 스타디움식 6단 좌석 60석, 붉은 접이식 의자, 흡음벽, 빔프로젝터 | 중앙 통로 폭 18, 학생 PC 24석(좌12, 우12), 슬림 모니터, PC 본체 케이블 뭉치, 회전의자, 교사용 연구대, 전면 스크린 | 낮은 동화책 서가 5개동, 책등 181개, 빈 책 슬롯 10개소, 온돌 좌식 존, 일반 열람석 4세트, 카운터 바(하이체어 5개), 키오스크 2대 |
+| **update 기믹** | 빔프로젝터 광선 펄스 애니메이션 | 모니터/본체 LED 점멸 펄스 연출 | 키오스크 바코드 스캐너 빨간 레이저 라인 좌우 스캔 왕복 |
+| **cleanup 대상** | 빔프로젝터 광선 메쉬 제거, 전용 머티리얼/지오메트리 해제 | LED 펄스 리소스 및 전용 머티리얼/지오메트리 해제 | CanvasTexture 3종(`floorTex`, `ondolTex`, `kioskScreenTex`) dispose, 머티리얼/지오메트리 해제 |
+| **알려진 보류/제한** | 실제 비디오 재생, 좌석 개별 접힘 애니메이션 | 실제 PC 부팅/OS 시뮬레이션, 키보드 타이핑 상호작용 | 실제 도서 대출/반납 바코드 판독 미니게임, 서가 책 꺼내기 |
+| **독립 자동 검사** | `node scripts/check_av_room.mjs` | `node scripts/check_computer_lab.mjs` | `node scripts/check_library_elem.mjs` |
+| **통합 일괄 검사** | `node scripts/check_followup_maps.mjs` | `node scripts/check_followup_maps.mjs` | `node scripts/check_followup_maps.mjs` |

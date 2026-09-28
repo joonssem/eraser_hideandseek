@@ -108,6 +108,7 @@
       <option value="care_room">🧸 돌봄교실 (care_room)</option>
       <option value="av_room">🎬 시청각실 (av_room)</option>
       <option value="computer_lab">🖥️ 컴퓨터실 (computer_lab)</option>
+      <option value="library_elem">📚 초등 도서실 (library_elem)</option>
     </select>
   </div>
 
@@ -234,6 +235,14 @@ import {
   cleanupComputerLab
 } from "./computer_lab.js";
 
+// 8. 초등 도서실 모듈 독립 임포트
+import {
+  LIBRARY_ELEM_MAP,
+  buildLibraryElem,
+  updateLibraryElemGimmicks,
+  cleanupLibraryElem
+} from "./library_elem.js";
+
 // 지원 맵 레지스트리
 const AVAILABLE_MAPS = {
   art_room: {
@@ -277,6 +286,12 @@ const AVAILABLE_MAPS = {
     build: buildComputerLab,
     update: updateComputerLabGimmicks,
     cleanup: cleanupComputerLab
+  },
+  library_elem: {
+    meta: LIBRARY_ELEM_MAP,
+    build: buildLibraryElem,
+    update: updateLibraryElemGimmicks,
+    cleanup: cleanupLibraryElem
   }
 };
 

@@ -765,6 +765,24 @@ import {
   updateCareRoomGimmicks,
   cleanupCareRoom
 } from './maps/care_room.js';
+import {
+  AV_ROOM_MAP,
+  buildAvRoom,
+  updateAvRoomGimmicks,
+  cleanupAvRoom
+} from './maps/av_room.js';
+import {
+  COMPUTER_LAB_MAP,
+  buildComputerLab,
+  updateComputerLabGimmicks,
+  cleanupComputerLab
+} from './maps/computer_lab.js';
+import {
+  LIBRARY_ELEM_MAP,
+  buildLibraryElem,
+  updateLibraryElemGimmicks,
+  cleanupLibraryElem
+} from './maps/library_elem.js';
 
 /* ============================================================
    Firebase 설정은 이 파일 맨 위 <head>의 "선생님 설정 구역"에서 합니다.
@@ -2128,6 +2146,9 @@ const MAPS={
   music_room:{ ...MUSIC_ROOM_MAP, type:"module", build:buildMusicRoom, update:updateMusicRoomGimmicks, cleanup:cleanupMusicRoom },
   health_office:{ ...HEALTH_OFFICE_MAP, type:"module", build:buildHealthOffice, update:updateHealthOfficeGimmicks, cleanup:cleanupHealthOffice },
   care_room:{ ...CARE_ROOM_MAP, type:"module", build:buildCareRoom, update:updateCareRoomGimmicks, cleanup:cleanupCareRoom },
+  av_room:{ ...AV_ROOM_MAP, type:"module", build:buildAvRoom, update:updateAvRoomGimmicks, cleanup:cleanupAvRoom },
+  computer_lab:{ ...COMPUTER_LAB_MAP, type:"module", build:buildComputerLab, update:updateComputerLabGimmicks, cleanup:cleanupComputerLab },
+  library_elem:{ ...LIBRARY_ELEM_MAP, type:"module", build:buildLibraryElem, update:updateLibraryElemGimmicks, cleanup:cleanupLibraryElem },
 };
 function mapIsReady(id){
   const m=MAPS[id];
