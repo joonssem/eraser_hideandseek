@@ -207,11 +207,19 @@ const mockTHREE = {
   TorusGeometry: class { constructor() {} dispose() {} },
   MeshLambertMaterial: class { constructor(opt) { Object.assign(this, opt); this.disposed = false; } dispose() { this.disposed = true; } },
   MeshBasicMaterial: class { constructor(opt) { Object.assign(this, opt); this.disposed = false; } dispose() { this.disposed = true; } },
-  CanvasTexture: class { constructor() {} },
+  CanvasTexture: class {
+    constructor() {
+      this.disposed = false;
+      mockCreatedTextures.push(this);
+    }
+    dispose() { this.disposed = true; }
+  },
   DoubleSide: 2,
   SRGBColorSpace: "srgb",
   RepeatWrapping: 1000
 };
+
+const mockCreatedTextures = [];
 
 function mockCanvasTex(w, h, drawFn) {
   const mockCtx = {
@@ -360,6 +368,7 @@ assert(typeof cleanupComputerLab === "function", "cleanupComputerLab 함수 expo
 // ─────────────────────────────────────────────────────────────────
 console.log("\n[2] 공간 수치 및 컨텍스트 계약 검사");
 const t1 = createTestContext();
+const t1TextureStart = mockCreatedTextures.length;
 buildComputerLab(t1.ctx);
 
 assert(t1.getWallH() === 26, `setWallHeight(26) 계약 이행 확인 (실제: ${t1.getWallH()})`);
@@ -399,6 +408,215 @@ assert(keyboards.length >= 24, `학생 키보드 24개 이상 확인 (실제: ${
 // 사무용 의자 좌판 (너비 2.6, 깊이 2.6)
 const chairs = t1.samplables.filter(m => m.geometry?.w === 2.6 && m.geometry?.d === 2.6);
 assert(chairs.length === 24, `학생 사무용 의자 좌판 24개 확인 (실제: ${chairs.length})`);
+
+// ─────────────────────────────────────────────────────────────────
+// 3-1. 미정리 키보드 4석 및 미정리 의자 4석 정밀 검증 (P1)
+// ─────────────────────────────────────────────────────────────────
+console.log("\n[3-1] 미정리 키보드 4석 및 회전 의자 4석 검증");
+// 학생 키보드 24개 분석 (교사용 키보드 제외: z > -25)
+const studentKeyboards = t1.samplables.filter(m => m.geometry?.w === 3.4 && m.geometry?.d === 1.2 && m.position.z > -25);
+assert(studentKeyboards.length === 24, `학생 키보드 정확히 24개 확인 (실제: ${studentKeyboards.length})`);
+
+// 회전된 키보드 4개 검출
+const rotatedKeyboards = studentKeyboards.filter(m => Math.abs(m.rotation.y) > 0.01);
+assert(rotatedKeyboards.length === 4, `미정리(회전된) 키보드 정확히 4개 확인 (실제: ${rotatedKeyboards.length})`);
+
+let keyboardsWithinSpec = true;
+rotatedKeyboards.forEach(kb => {
+  const deg = Math.abs(kb.rotation.y * 180 / Math.PI);
+  // 회전 범위 15~25도
+  if (deg < 14.9 || deg > 25.1) {
+    keyboardsWithinSpec = false;
+    console.error(`  ❌ 키보드 회전 각도 규격(15~25도) 벗어남: ${deg.toFixed(1)}도`);
+  }
+});
+assert(keyboardsWithinSpec, "미정리 키보드 4개 회전 각도 15~25도 범위 충족 확인");
+
+// 변형 의자 4개 검출
+const studentChairs = t1.samplables.filter(m => m.geometry?.w === 2.6 && m.geometry?.d === 2.6 && m.position.z > -25);
+assert(studentChairs.length === 24, `학생 사무용 의자 정확히 24개 확인 (실제: ${studentChairs.length})`);
+
+const displacedChairs = studentChairs.filter(m => Math.abs(m.rotation.y) > 0.01);
+assert(displacedChairs.length === 4, `미정리(돌출/회전) 의자 정확히 4개 확인 (실제: ${displacedChairs.length})`);
+
+let chairsDisplaceWithinSpec = true;
+let chairsRotWithinSpec = true;
+let chairsAABBMatched = true;
+
+displacedChairs.forEach(ch => {
+  const deg = Math.abs(ch.rotation.y * 180 / Math.PI);
+  if (deg < 19.9 || deg > 45.1) {
+    chairsRotWithinSpec = false;
+    console.error(`  ❌ 의자 회전 각도 규격(20~45도) 벗어남: ${deg.toFixed(1)}도`);
+  }
+
+  // 돌출량 확인 (기본 책상 rz + 2.3과의 차이)
+  const baseRz = [-16, -2, 12, 26].reduce((closest, rz) =>
+    Math.abs(ch.position.z - (rz + 2.3)) < Math.abs(ch.position.z - (closest + 2.3)) ? rz : closest
+  );
+  const displaceZ = ch.position.z - (baseRz + 2.3);
+  if (displaceZ < 0.79 || displaceZ > 1.41) {
+    chairsDisplaceWithinSpec = false;
+    console.error(`  ❌ 의자 돌출 거리 규격(0.8~1.4유닛) 벗어남: ${displaceZ.toFixed(2)}유닛`);
+  }
+
+  // AABB 중심 동기화 확인
+  const matchingAABB = t1.colliders.find(b =>
+    Math.abs((b.min.x + b.max.x) / 2 - ch.position.x) < 0.05 &&
+    Math.abs((b.min.z + b.max.z) / 2 - ch.position.z) < 0.05 &&
+    Math.abs((b.min.y + b.max.y) / 2 - 1.8) < 0.05
+  );
+  if (!matchingAABB) {
+    chairsAABBMatched = false;
+    console.error(`  ❌ 의자 메쉬 좌표 [${ch.position.x}, ${ch.position.z}]와 일치하는 AABB 충돌체 없음`);
+  }
+});
+
+assert(chairsRotWithinSpec, "미정리 의자 4개 회전 각도 20~45도 범위 충족 확인");
+assert(chairsDisplaceWithinSpec, "미정리 의자 4개 책상 뒤 돌출 거리 0.8~1.4 유닛 충족 확인");
+assert(chairsAABBMatched, "미정리 의자 4개 시각 메쉬와 AABB 충돌체 중심 완전 동기화 확인");
+
+// ─────────────────────────────────────────────────────────────────
+// 3-2. 후방 전산 책장 및 헤드셋 보관함 검증 (P1)
+// ─────────────────────────────────────────────────────────────────
+console.log("\n[3-2] 후방 전산 책장 및 헤드셋 보관함 검증");
+// 후방 책장 AABB: 크기 10.0 x 7.5 x 2.6, 중심 (-36.0, 3.75, 40.5)
+const bookcaseAABB = t1.colliders.find(b => {
+  const sz = new Vector3();
+  b.getSize(sz);
+  return Math.abs(sz.x - 10.04) < 0.1 && Math.abs(sz.y - 7.54) < 0.1 && Math.abs(sz.z - 2.64) < 0.1 &&
+    Math.abs(b.min.x - (-41.02)) < 0.1;
+});
+assert(!!bookcaseAABB, "후방 전산 책장 외곽 AABB(10.0 x 7.5 x 2.6) 등록 확인");
+assert(
+  bookcaseAABB && Math.abs(bookcaseAABB.min.x - (-41.02)) < 0.05 && Math.abs(bookcaseAABB.max.x - (-30.98)) < 0.05 &&
+  Math.abs(bookcaseAABB.min.z - 39.18) < 0.05 && Math.abs(bookcaseAABB.max.z - 41.82) < 0.05,
+  "후방 책장 AABB 범위 x in [-41.0, -31.0], z in [39.2, 41.8] 정확도 확인"
+);
+
+// 책장 선반(3단) 메쉬 확인
+const shelves = t1.samplables.filter(m => m.geometry?.w === 9.6 && Math.abs(m.position.x - (-36.0)) < 0.1);
+assert(shelves.length >= 3, `책장 선반 메쉬 3단 이상 확인 (실제: ${shelves.length})`);
+
+// 후방 헤드셋함 AABB: 크기 8.0 x 4.0 x 2.4, 중심 (36.0, 2.0, 40.5)
+const headsetCartAABB = t1.colliders.find(b => {
+  const sz = new Vector3();
+  b.getSize(sz);
+  return Math.abs(sz.x - 8.04) < 0.1 && Math.abs(sz.y - 4.04) < 0.1 && Math.abs(sz.z - 2.44) < 0.1 &&
+    Math.abs(b.min.x - 31.98) < 0.1;
+});
+assert(!!headsetCartAABB, "후방 헤드셋 보관함 외곽 AABB(8.0 x 4.0 x 2.4) 등록 확인");
+assert(
+  headsetCartAABB && Math.abs(headsetCartAABB.min.x - 31.98) < 0.05 && Math.abs(headsetCartAABB.max.x - 40.02) < 0.05 &&
+  Math.abs(headsetCartAABB.min.z - 39.28) < 0.05 && Math.abs(headsetCartAABB.max.z - 41.72) < 0.05,
+  "후방 헤드셋함 AABB 범위 x in [32.0, 40.0], z in [39.3, 41.7] 정확도 확인"
+);
+
+// 헤드셋 2단 보관 바구니 확인
+const bins = t1.samplables.filter(m => m.geometry?.w === 7.2 && Math.abs(m.position.x - 36.0) < 0.1);
+assert(bins.length === 2, `헤드셋 보관 바구니 2단 확인 (실제: ${bins.length})`);
+
+// 헤드셋 개수 확인 (8~12개 중 정확히 10개)
+const earpads = t1.samplables.filter(m => m.geometry?.w === 0.2 && m.geometry?.h === 0.38 && m.geometry?.d === 0.38 && m.position.x > 30.0);
+const headsetCount = earpads.length / 2;
+assert(headsetCount >= 8 && headsetCount <= 12, `헤드셋 8~12개 수량 규격 충족 (실제: ${headsetCount}개)`);
+assert(headsetCount === 10, `헤드셋 정확히 10개(상단 5, 하단 5) 생성 확인`);
+
+// 신규 가구 AABB와 스폰 겹침 0건 검사
+let newFurnitureSpawnOverlap = 0;
+[...t1.hiderSpawns, ...t1.seekerSpawns].forEach(sp => {
+  if (bookcaseAABB && bookcaseAABB.containsPointXZ(sp.x, sp.z)) newFurnitureSpawnOverlap++;
+  if (headsetCartAABB && headsetCartAABB.containsPointXZ(sp.x, sp.z)) newFurnitureSpawnOverlap++;
+});
+assert(newFurnitureSpawnOverlap === 0, "신규 책장 및 헤드셋함 AABB와 전체 26개 스폰 포인트 간 XZ 겹침 0건 확인");
+
+// ─────────────────────────────────────────────────────────────────
+// 3-3. 예비 주변기기, 수업/정비 도구 및 자격증 게시판 검증 (P1 보완)
+// ─────────────────────────────────────────────────────────────────
+console.log("\n[3-3] 예비 장비, 정비 도구 및 자격증 게시판 검증");
+// 예비 키보드 2개 확인 (후방 수납장 X > 30, Z > 35)
+const spareKeyboards = t1.samplables.filter(m => m.geometry?.w === 3.2 && m.position.z > 35.0 && m.position.x > 30.0);
+assert(spareKeyboards.length === 2, `수납함 내 예비 키보드 정확히 2개 확인 (실제: ${spareKeyboards.length})`);
+
+// 예비 마우스 정확히 4개 확인 (너비 0.7, 깊이 1.1, 후방 수납장 Z > 35)
+const spareMice = t1.samplables.filter(m => m.geometry?.w === 0.7 && m.geometry?.d === 1.1 && m.position.z > 35.0);
+assert(spareMice.length === 4, `수납함 내 예비 마우스 정확히 4개 확인 (실제: ${spareMice.length})`);
+
+// 소형 수업/정비 도구 4종 확인 (LAN 케이블, USB 허브, 케이블 타이, 공구 케이스)
+const lanCable = t1.samplables.find(m => m.geometry?.type === "CylinderGeometry" && Math.abs(m.geometry?.r - 0.35) < 0.01 && m.position.z > 35.0);
+const usbHub = t1.samplables.find(m => m.geometry?.w === 0.9 && m.geometry?.h === 0.15 && m.position.z > 35.0);
+const cableTie = t1.samplables.find(m => m.geometry?.w === 0.6 && m.geometry?.h === 0.12 && m.position.z > 35.0);
+const toolCase = t1.samplables.find(m => m.geometry?.w === 1.0 && m.geometry?.h === 0.18 && m.position.z > 35.0);
+assert(!!lanCable && !!usbHub && !!cableTie && !!toolCase, "소형 수업/정비 도구 4종(LAN 케이블, USB 허브, 케이블 타이, 정밀 공구 케이스) 메쉬 존재 확인");
+
+// 컴퓨터 자격 인증 안내 게시판 확인
+const boardMesh = t1.samplables.find(m => m.geometry?.w === 10.0 && m.geometry?.h === 5.0 && Math.abs(m.position.z - 44.8) < 0.05);
+assert(!!boardMesh, "후방 벽면 자격증 안내 게시판 메쉬(10.0 x 5.0) 존재 확인");
+assert(boardMesh && Math.abs(boardMesh.position.x - (-36.0)) < 0.1 && Math.abs(boardMesh.position.y - 12.0) < 0.1, "자격증 게시판 벽면(X=-36.0, Y=12.0) 안전 안착 확인");
+
+// ─────────────────────────────────────────────────────────────────
+// 3-4. 학생 마우스 20석 및 모니터 화면 전원 다양화 검증 (P2 & P3)
+// ─────────────────────────────────────────────────────────────────
+console.log("\n[3-4] 학생 마우스 20석 및 모니터 전원/화면 다양화 검증 (P2 & P3)");
+// 1) 학생 책상 마우스 20개 확인 (너비 0.7, 높이 0.38, 깊이 1.15, Z in [-20, 30])
+const studentMice = t1.samplables.filter(m =>
+  m.geometry?.w === 0.7 && Math.abs(m.geometry?.h - 0.38) < 0.01 && Math.abs(m.geometry?.d - 1.15) < 0.01 &&
+  m.position.z >= -20.0 && m.position.z <= 30.0
+);
+assert(studentMice.length === 20, `학생 책상 위 마우스 정확히 20개 확인 (실제: ${studentMice.length})`);
+
+// 교사용 마우스 1개 확인 (Z < -30)
+const teacherMouse = t1.samplables.find(m =>
+  m.geometry?.w === 0.7 && Math.abs(m.geometry?.h - 0.38) < 0.01 && Math.abs(m.geometry?.d - 1.15) < 0.01 &&
+  m.position.z < -30.0
+);
+assert(!!teacherMouse, "교사용 책상 위 마우스 1개 배치 확인");
+
+// 마우스 미배치 4석(중앙 통로 변: 0,2 / 1,3 / 2,2 / 3,3) 확인
+const emptyMousePositions = [
+  { row: 0, col: 2, x: -17.0 + 2.1, z: -16.0 + 0.5 },
+  { row: 1, col: 3, x: 17.0 + 2.1, z: -2.0 + 0.5 },
+  { row: 2, col: 2, x: -17.0 + 2.1, z: 12.0 + 0.5 },
+  { row: 3, col: 3, x: 17.0 + 2.1, z: 26.0 + 0.5 }
+];
+let emptySeatsConfirmed = true;
+emptyMousePositions.forEach(pos => {
+  const found = studentMice.some(m => Math.hypot(m.position.x - pos.x, m.position.z - pos.z) < 0.8);
+  if (found) {
+    emptySeatsConfirmed = false;
+    console.error(`  ❌ 빈 좌석이어야 하는 위치(R${pos.row} C${pos.col})에 마우스가 존재함: [${pos.x}, ${pos.z}]`);
+  }
+});
+assert(emptySeatsConfirmed, "중앙 통로 인접 4석 마우스 미배치(지우개 요정 위장 명당) 확인");
+
+// 2) 학생 모니터 화면 24대 전원 상태 및 텍스처 검증 (켜짐 18, 절전 3, 꺼짐 3)
+const studentScreens = t1.samplables.filter(m =>
+  Math.abs(m.geometry?.w - 3.7) < 0.01 && Math.abs(m.geometry?.h - 2.1) < 0.01 &&
+  m.position.z >= -20.0 && m.position.z <= 30.0
+);
+assert(studentScreens.length === 24, `학생 모니터 화면 메쉬 정확히 24대 확인 (실제: ${studentScreens.length})`);
+
+// 꺼짐 화면 3대 (color: 0x060608)
+const offScreens = studentScreens.filter(m => m.material?.color === 0x060608);
+assert(offScreens.length === 3, `꺼진(OFF) 모니터 정확히 3대 확인 (실제: ${offScreens.length})`);
+
+// 절전 화면 3대 (emissive: 0x110800)
+const sleepScreens = studentScreens.filter(m => m.material?.emissive === 0x110800);
+assert(sleepScreens.length === 3, `절전(Sleep) 모니터 정확히 3대 확인 (실제: ${sleepScreens.length})`);
+
+// 켜짐 화면 18대 (emissive > 0x202020)
+const onScreens = studentScreens.filter(m => m.material?.emissive >= 0x2a2a2a);
+assert(onScreens.length === 18, `켜진(ON) 모니터 정확히 18대 확인 (실제: ${onScreens.length})`);
+
+// 켜진 화면 6종 머티리얼 각 3대씩 균등 배정 검증
+const onMatMap = new Map();
+onScreens.forEach(m => {
+  const cnt = onMatMap.get(m.material) || 0;
+  onMatMap.set(m.material, cnt + 1);
+});
+assert(onMatMap.size === 6, `켜진 화면 6종 UI 패턴 적용 확인 (실제: ${onMatMap.size}종)`);
+const allMatsHaveThree = [...onMatMap.values()].every(c => c === 3);
+assert(allMatsHaveThree, "6종 UI 화면 패턴 각 3대씩 완전 균등(3대 x 6종 = 18대) 배정 확인");
 
 // ─────────────────────────────────────────────────────────────────
 // 4. 중앙 통로 폭 최소 18 units 및 학생 구역 AABB 침범 0건 검증
@@ -484,6 +702,9 @@ try {
 assert(!updateError, "updateComputerLabGimmicks 함수 예외 없이 정상 실행");
 
 cleanupComputerLab(t1.ctx);
+const t1Textures = mockCreatedTextures.slice(t1TextureStart);
+assert(t1Textures.length === 9, `컴퓨터실 맵 생성 CanvasTexture 9개 추적 확인 (실제: ${t1Textures.length})`);
+assert(t1Textures.every(texture => texture.disposed), `cleanupComputerLab 후 CanvasTexture 9개 전수 dispose 확인 (${t1Textures.filter(texture => texture.disposed).length}/${t1Textures.length})`);
 
 let afterCleanupUpdateErr = false;
 try {
@@ -525,7 +746,8 @@ for (let loop = 1; loop <= 3; loop++) {
   // D. 4번째 행 (z = 26.0) 6석의 실물 메쉬 보존 실측 검증
   const row4Desks = desks.filter(m => Math.abs(m.position.z - 26.0) < 0.01);
   const row4Monitors = monitors.filter(m => Math.abs(m.position.z - (26.0 - 0.8)) < 0.01);
-  const row4Chairs = chairSeats.filter(m => Math.abs(m.position.z - (26.0 + 2.3)) < 0.01);
+  // [P1] 돌출된 의자(Row3 Col3, dz=+1.0)를 포함하여 4행의 6개 의자 좌판 보존 확인
+  const row4Chairs = chairSeats.filter(m => m.position.z >= 26.0 + 2.3 - 0.05 && m.position.z <= 26.0 + 2.3 + 1.5);
 
   if (row4Desks.length !== 6 || row4Monitors.length !== 6 || row4Chairs.length !== 6) {
     row4AlwaysIntact = false;
