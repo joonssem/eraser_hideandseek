@@ -17,7 +17,7 @@
  *    - 창가 카운터 바: 긴 카운터 테이블(높이 3.2), 하이체어 5개, 통로 이동 동선 확보
  * 3. 스마트 무인 대출·반납기 키오스크 정확히 2대 (입구 배치)
  *    - 민트(#48cae4) & 화이트 투톤, 터치스크린, 발광 레드 스캐너 라인, 영수증 출력구, 도서 반납구
- * 4. 사서 데스크 & 도서 반납 카트 및 리필존 1개소 등록
+ * 4. 행사 안내 벽보 3종, 창가 책상 필기도구, 사서 데스크와 리필존
  * 5. 지우개 스폰 20개 / 술래 스폰 6개 (전부 y=0 바닥 및 AABB 겹침 0건 보장)
  */
 
@@ -127,6 +127,26 @@ export function buildLibraryElem(ctx) {
     g.fillRect(69, 62, 45, 45);
   }));
 
+  const libraryPosters = [
+    { title: "이 달의 책 소개", subtitle: "상상력을 키우는\n이야기 속으로!", color: "#ffb703", accent: "#fb5607" },
+    { title: "도서관 행사", subtitle: "독서 여권 만들기\n책 한 권, 도장 하나!", color: "#90e0ef", accent: "#0077b6" },
+    { title: "함께 만드는 시", subtitle: "시를 이용한\n책갈피 만들기", color: "#ffc8dd", accent: "#c9184a" }
+  ].map(({ title, subtitle, color, accent }) => {
+    const tex = trackTex(canvasTex(256, 320, (g, w, h) => {
+      g.fillStyle = "#fffaf0"; g.fillRect(0, 0, w, h);
+      g.fillStyle = color; g.fillRect(10, 10, w - 20, h - 20);
+      g.fillStyle = accent; g.fillRect(20, 24, w - 40, 66);
+      g.fillStyle = "#ffffff"; g.font = "bold 22px sans-serif"; g.textAlign = "center";
+      g.fillText(title, w / 2, 66);
+      g.fillStyle = "#263238"; g.font = "bold 18px sans-serif";
+      subtitle.split("\n").forEach((line, i) => g.fillText(line, w / 2, 142 + i * 30));
+      g.fillStyle = accent; g.beginPath(); g.arc(w / 2, 240, 28, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#ffffff"; g.font = "bold 18px sans-serif"; g.fillText("📚", w / 2, 247);
+      g.textAlign = "start";
+    }));
+    return trackMat(lambert({ map: tex }));
+  });
+
   const floorMat = trackMat(lambert({ map: floorTex }));
   const ondolMat = trackMat(lambert({ map: ondolTex }));
   const shelfWoodMat = trackMat(lambert({ color: 0xc68b59 }));      // 서가 따뜻한 원목
@@ -197,6 +217,11 @@ export function buildLibraryElem(ctx) {
 
   // 리필존 1개소 등록: "사서데스크"
   refillZones.push({ x: -26.0, z: -36.0, r: 6.0, label: "사서데스크" });
+
+  // 서쪽 벽면 행사 게시판: 세 가지 독서 활동을 학생 눈높이에 표시
+  [-29.0, -17.0, -5.0].forEach((z, i) => {
+    addBox(0.18, 5.2, 8.0, libraryPosters[i], -59.85, 8.0, z, { collide: false, sample: true });
+  });
 
   // ─────────────────────────────────────────────────────────────────
   // 5. 중앙 5단 동화책 서가 + 좌우 벽면 서가
@@ -456,6 +481,23 @@ export function buildLibraryElem(ctx) {
     addCyl(0.12, 1.9, stoolMetalMat, sx - 0.45, 0.95, 36.5 + 0.45, { collide: false, sample: false });
     addCyl(0.12, 1.9, stoolMetalMat, sx + 0.45, 0.95, 36.5 + 0.45, { collide: false, sample: false });
     addAABBCollider(sx, 1.0, 36.5, 1.6, 2.0, 1.6);
+  });
+
+  // 창가 카운터 위 학생용 필기도구: 색연필·마카·형광펜을 색상별 컵에 꽂아 둔다.
+  const stationeryColors = [0xef476f, 0xff9f1c, 0xffd166, 0x06d6a0, 0x118ab2, 0x7b2cbf, 0xf72585, 0x4361ee];
+  [30.0, 38.0, 46.0].forEach((sx, holderIndex) => {
+    const sz = 39.7;
+    addCyl(0.48, 0.75, kioskMintMat, sx, 3.65, sz, { collide: false, sample: true });
+    for (let p = 0; p < 8; p++) {
+      const angle = (Math.PI * 2 * p) / 8;
+      const px = sx + Math.cos(angle) * 0.27;
+      const pz = sz + Math.sin(angle) * 0.27;
+      const colorMat = trackMat(lambert({ color: stationeryColors[(p + holderIndex * 2) % stationeryColors.length] }));
+      addCyl(p % 3 === 0 ? 0.085 : 0.055, p % 3 === 0 ? 1.25 : 1.05, colorMat, px, 4.35, pz, { collide: false, sample: true });
+      if (p % 3 === 0) {
+        addCyl(0.09, 0.16, colorMat, px, 4.99, pz, { collide: false, sample: true });
+      }
+    }
   });
 
   // ─────────────────────────────────────────────────────────────────

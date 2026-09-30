@@ -2148,7 +2148,7 @@ const MAPS={
   care_room:{ ...CARE_ROOM_MAP, type:"module", build:buildCareRoom, update:updateCareRoomGimmicks, cleanup:cleanupCareRoom },
   av_room:{ ...AV_ROOM_MAP, type:"module", build:buildAvRoom, update:updateAvRoomGimmicks, cleanup:cleanupAvRoom },
   computer_lab:{ ...COMPUTER_LAB_MAP, type:"module", build:buildComputerLab, update:updateComputerLabGimmicks, cleanup:cleanupComputerLab },
-  library_elem:{ ...LIBRARY_ELEM_MAP, type:"module", build:buildLibraryElem, update:updateLibraryElemGimmicks, cleanup:cleanupLibraryElem },
+  library_elem:{ ...LIBRARY_ELEM_MAP, type:"module", hiddenFromSelection:true, build:buildLibraryElem, update:updateLibraryElemGimmicks, cleanup:cleanupLibraryElem },
 };
 function mapIsReady(id){
   const m=MAPS[id];
@@ -5079,7 +5079,7 @@ function renderMapCards(){
   const box=$("mapCardBox"); if(!box)return;
   box.innerHTML="";
   const selected=Net.meta.mapId||"classroom";
-  Object.values(MAPS).forEach(m=>{
+  Object.values(MAPS).filter(m=>!m.hiddenFromSelection).forEach(m=>{
     const ready=mapIsReady(m.id);
     const card=document.createElement("div");
     card.className="mapCard"+(selected===m.id?" sel":"")+(!ready?" disabled":"")+(!G.isHost?" readonly":"");
@@ -5371,7 +5371,7 @@ $("lobbyNickInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("btnChan
 function renderLobbyPracticeMapCards(){
   const box=$("lobbyPracticeMapBox"); if(!box)return;
   box.innerHTML="";
-  Object.values(MAPS).forEach(m=>{
+  Object.values(MAPS).filter(m=>!m.hiddenFromSelection).forEach(m=>{
     const ready=mapIsReady(m.id);
     const card=document.createElement("div");
     card.className="mapCard"+(practiceMapId===m.id?" sel":"")+(!ready?" disabled":"");
@@ -5666,7 +5666,7 @@ let practiceMapId="classroom";
 function renderPracticeMapCards(){
   const box=$("practiceMapBox"); if(!box)return;
   box.innerHTML="";
-  Object.values(MAPS).forEach(m=>{
+  Object.values(MAPS).filter(m=>!m.hiddenFromSelection).forEach(m=>{
     const ready=mapIsReady(m.id);
     const card=document.createElement("div");
     card.className="mapCard"+(practiceMapId===m.id?" sel":"")+(!ready?" disabled":"");

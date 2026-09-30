@@ -630,7 +630,7 @@ assert(moduleDedicatedMeshes === 398, `도서실 모듈 전용 3D 메쉬 398개 
 assert(totalMeshes === 414, `공통 룸 셸 포함 총 3D 메쉬 414개 (전용 398 + 룸 셸 16) 확인 (실제: ${totalMeshes})`);
 
 // 텍스처 추적 검증
-assert(testEnv.createdTextures.length === 3, `도서실 전용 CanvasTexture 3개(floorTex, ondolTex, kioskScreenTex) 생성 및 추적 확인 (실제: ${testEnv.createdTextures.length}개)`);
+assert(testEnv.createdTextures.length === 6, `도서실 전용 CanvasTexture 6개(기본 3종 및 행사 포스터 3종) 생성·추적 확인 (실제: ${testEnv.createdTextures.length}개)`);
 assert(testEnv.createdTextures.every(t => t.disposed === false), "빌드 직후 CanvasTexture 활성 상태 (disposed === false) 확인");
 
 // update 호출 테스트
@@ -700,7 +700,7 @@ const allIdentical = rebuildCounts.every(c => (
   c.samplables === c1.samplables &&
   c.hiders === 20 &&
   c.seekers === 6 &&
-  c.textures === 3
+  c.textures === 6
 ));
 assert(allIdentical, `3회 반복 재빌드 수치 완전 일치 (총메쉬: ${c1.meshes}, 전용메쉬: ${c1.moduleMeshes}, 충돌체: ${c1.colliders}, samplables: ${c1.samplables}, 스폰: 20/6, 텍스처: ${c1.textures}개)`);
 assert(allRebuildTexturesDisposed, "3회 반복 재빌드 각 회차별 CanvasTexture 정밀 해제 및 텍스처 누적 0건 검증");
