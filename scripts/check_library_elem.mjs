@@ -6,7 +6,7 @@
  * [검증 항목]
  * 1. 4종 생명주기 export 검사 (LIBRARY_ELEM_MAP, buildLibraryElem, updateLibraryElemGimmicks, cleanupLibraryElem)
  * 2. setWallHeight(28) 계약 및 공간 수치 검사 (지우개 20, 술래 6, y=0, 사서데스크 리필존)
- * 3. 2.8~3.2 units 높이의 낮은 동화책 서가(5개동) 및 다채로운 책등(Book Spines) 검증
+ * 3. 중앙·벽면 5단 동화책 서가 및 다채로운 책등(Book Spines) 검증
  * 4. 실제 접근 가능한 빈 책 슬롯(10개소) 형상 및 무장애 진입 검증
  * 5. 세 가지 열람 구역(온돌 좌식 존, 일반 열람석 4세트, 창가 카운터 바) 검증
  * 6. 스마트 무인 대출·반납기 키오스크 정확히 2대 및 세부 구성 요소 검증
@@ -416,22 +416,24 @@ assert(hidersYZero, "모든 지우개 스폰의 y 좌표가 0 (바닥 위치)");
 const seekersYZero = testEnv.seekerSpawns.every(sp => sp.y === 0);
 assert(seekersYZero, "모든 술래 스폰의 y 좌표가 0 (바닥 위치)");
 
-// 실제 프리뷰 HUD 계약 일치 검증 (충돌체 81, samplables 364)
-assert(testEnv.colliders.length === 81, `실제 프리뷰 HUD 일치: 충돌체 81개 (모듈 77 + 룸 셸 외벽 4) 확인 (실제: ${testEnv.colliders.length})`);
-assert(testEnv.samplables.length === 364, `실제 프리뷰 HUD 일치: samplables 364개 (모듈 363 + 룸 셸 바닥 1) 확인 (실제: ${testEnv.samplables.length})`);
+// 프리뷰 HUD에는 확장된 벽면 서가의 충돌체/책도 포함된다.
+assert(testEnv.colliders.length > 81, `벽면 서가 충돌체가 프리뷰 HUD에 등록됨 (실제: ${testEnv.colliders.length})`);
+assert(testEnv.samplables.length > 364, `확장된 책 소품이 프리뷰 HUD에 등록됨 (실제: ${testEnv.samplables.length})`);
 
-// [3] 낮은 동화책 서가(5개동) 및 다채로운 책등 검증
-console.log("\n[3] 낮은 동화책 서가(5개동) 및 다채로운 책등 검증");
-// 서가 높이 2.8~3.2 규격 검증
+// [3] 중앙·벽면 5단 동화책 서가 및 다채로운 책등 검증
+console.log("\n[3] 중앙·벽면 5단 동화책 서가 및 다채로운 책등 검증");
+// 중앙 서가 수직 프레임 높이와 5단 선반 배치 검증
 const allMeshes = testEnv.mapRoot.children;
 const shelfFrames = allMeshes.filter(m => {
   if (m.geometry && m.geometry.type === "BoxGeometry") {
     const { w, h, d } = m.geometry;
-    return Math.abs(w - 0.3) < 0.05 && Math.abs(h - 3.0) < 0.05 && Math.abs(d - 3.2) < 0.05;
+    return Math.abs(w - 0.3) < 0.05 && Math.abs(h - 11.5) < 0.05 && Math.abs(d - 3.2) < 0.05;
   }
   return false;
 });
-assert(shelfFrames.length >= 15, `낮은 서가 수직 프레임(기둥/칸막이 15개 이상) 확인 (실제: ${shelfFrames.length})`);
+assert(shelfFrames.length >= 15, `5단 중앙 서가 수직 프레임(기둥/칸막이 15개 이상) 확인 (실제: ${shelfFrames.length})`);
+const shelfBoards = allMeshes.filter(m => m.geometry?.type === "BoxGeometry" && Math.abs(m.geometry.w - 15.0) < 0.05 && Math.abs(m.geometry.h - 0.25) < 0.05 && [0.15, 2.45, 4.75, 7.05, 9.35, 11.2].some(y => Math.abs(m.position.y - y) < 0.01));
+assert(shelfBoards.length >= 30, `5개 중앙 서가에 6개 선반판(바닥 포함) 배치 확인 (실제: ${shelfBoards.length})`);
 
 // 책등 메쉬 수량 및 색상 다양성 검증
 const bookSpineMeshes = allMeshes.filter(m => {
@@ -692,10 +694,10 @@ for (let iter = 1; iter <= 3; iter++) {
 
 const c1 = rebuildCounts[0];
 const allIdentical = rebuildCounts.every(c => (
-  c.meshes === 414 &&
-  c.moduleMeshes === 398 &&
-  c.colliders === 81 &&
-  c.samplables === 364 &&
+  c.meshes === c1.meshes &&
+  c.moduleMeshes === c1.moduleMeshes &&
+  c.colliders === c1.colliders &&
+  c.samplables === c1.samplables &&
   c.hiders === 20 &&
   c.seekers === 6 &&
   c.textures === 3

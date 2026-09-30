@@ -8,7 +8,7 @@
  * - 표준 생명주기: LIBRARY_ELEM_MAP, buildLibraryElem, updateLibraryElemGimmicks, cleanupLibraryElem
  *
  * [주요 구역 및 오브젝트]
- * 1. 낮은 동화책 서가 5개동 (높이 3.0 units, 2.8~3.2 규격 준수)
+ * 1. 5단 동화책 서가 5개동 + 좌우 벽면 5단 서가
  *    - 다채로운 색상(빨강, 주황, 노랑, 청록, 보라 등)의 책등(Book Spines)
  *    - 실제 진입 및 세로 은신 가능한 빈 책 슬롯(Empty Slots) 10개소 (장식/통짜 AABB 봉쇄 없음)
  * 2. 세 가지 다채로운 열람 구역
@@ -199,10 +199,10 @@ export function buildLibraryElem(ctx) {
   refillZones.push({ x: -26.0, z: -36.0, r: 6.0, label: "사서데스크" });
 
   // ─────────────────────────────────────────────────────────────────
-  // 5. 낮은 동화책 서가 5개동 (높이 3.0 units, 2.8~3.2 범위 엄격 준수)
+  // 5. 중앙 5단 동화책 서가 + 좌우 벽면 서가
   // ─────────────────────────────────────────────────────────────────
-  // 서가 구조: 가로 15.0, 높이 3.0, 깊이 3.2
-  // - 좌측/우측 기둥, 중앙 칸막이, 바닥판, 중간선반, 상판
+  // 중앙 서가: 기존 위치와 바닥·2단 접근 슬롯은 유지하고 전체 높이를 11.5로 확장
+  // - 5개 선반 층에 책을 배치하고, 좌우 벽면에도 깊이 3.2의 5단 서가 추가
   // - 후면 차폐판은 뒤편 z-1.45에 배치하여 전면 빈 슬롯 진입 통로 완벽 개방
   // - 1층과 2층에 지우개가 쏙 들어가는 빈 슬롯(Empty Slot) 확보
   const bookshelfPositions = [
@@ -216,28 +216,29 @@ export function buildLibraryElem(ctx) {
   bookshelfPositions.forEach((pos, sIdx) => {
     const bx = pos.x;
     const bz = pos.z;
-    const shelfH = 3.0; // 엄격 준수 (2.8~3.2 규격)
+    const shelfH = 11.5;
     const shelfW = 15.0;
     const shelfD = 3.2;
 
     // A. 수직 프레임 (좌 기둥, 중앙 칸막이, 우 기둥)
-    addBox(0.3, shelfH, shelfD, shelfWoodMat, bx - 7.35, 1.5, bz, { collide: false, sample: true });
-    addBox(0.3, shelfH, shelfD, shelfWoodMat, bx, 1.5, bz, { collide: false, sample: true });
-    addBox(0.3, shelfH, shelfD, shelfWoodMat, bx + 7.35, 1.5, bz, { collide: false, sample: true });
+    addBox(0.3, shelfH, shelfD, shelfWoodMat, bx - 7.35, shelfH / 2, bz, { collide: false, sample: true });
+    addBox(0.3, shelfH, shelfD, shelfWoodMat, bx, shelfH / 2, bz, { collide: false, sample: true });
+    addBox(0.3, shelfH, shelfD, shelfWoodMat, bx + 7.35, shelfH / 2, bz, { collide: false, sample: true });
     // 개별 프레임 충돌체 부여 (전체 통짜 AABB 금지)
-    addAABBCollider(bx - 7.35, 1.5, bz, 0.3, shelfH, shelfD);
-    addAABBCollider(bx, 1.5, bz, 0.3, shelfH, shelfD);
-    addAABBCollider(bx + 7.35, 1.5, bz, 0.3, shelfH, shelfD);
+    addAABBCollider(bx - 7.35, shelfH / 2, bz, 0.3, shelfH, shelfD);
+    addAABBCollider(bx, shelfH / 2, bz, 0.3, shelfH, shelfD);
+    addAABBCollider(bx + 7.35, shelfH / 2, bz, 0.3, shelfH, shelfD);
 
-    // B. 수평 선반 (바닥 선반 y=0.15, 중간 선반 y=1.5, 상판 y=2.9)
-    addBox(shelfW, 0.25, shelfD, shelfWoodMat, bx, 0.15, bz, { collide: false, sample: true });
-    addBox(shelfW, 0.25, shelfD, shelfWoodMat, bx, 1.5, bz, { collide: false, sample: true });
-    addBox(shelfW, 0.25, shelfD, shelfWoodMat, bx, 2.9, bz, { collide: false, sample: true });
-    addAABBCollider(bx, 2.9, bz, shelfW, 0.25, shelfD); // 상판 충돌체
+    // B. 5단 수평 선반 (높이 약 2.3 간격)
+    const shelfLevels = [0.15, 2.45, 4.75, 7.05, 9.35, 11.2];
+    shelfLevels.forEach((y, level) => {
+      addBox(shelfW, 0.25, shelfD, shelfWoodMat, bx, y, bz, { collide: false, sample: true });
+      if (level === shelfLevels.length - 1) addAABBCollider(bx, y, bz, shelfW, 0.25, shelfD);
+    });
 
     // C. 서가 후면판 (z = bz - 1.45)
-    addBox(shelfW, shelfH, 0.2, shelfBackMat, bx, 1.5, bz - 1.45, { collide: false, sample: true });
-    addAABBCollider(bx, 1.5, bz - 1.45, shelfW, shelfH, 0.2);
+    addBox(shelfW, shelfH, 0.2, shelfBackMat, bx, shelfH / 2, bz - 1.45, { collide: false, sample: true });
+    addAABBCollider(bx, shelfH / 2, bz - 1.45, shelfW, shelfH, 0.2);
 
     // D. 동화책 책등 및 실제 접근 가능한 빈 슬롯(Empty Slot) 생성
     // 좌측 베이: X from bx-7.2 to bx-0.15 (너비 ~7.0)
@@ -303,6 +304,48 @@ export function buildLibraryElem(ctx) {
       const mat = bookMats[Math.floor(Math.abs(curX * 9) % bookMats.length)];
       addBox(bookW, bookH, bookD, mat, curX + bookW / 2, 1.63 + bookH / 2, bz - 0.5, { collide: false, sample: true });
       curX += bookW + 0.05;
+    }
+
+    // 3~5층: 각 베이의 남은 공간을 동화책으로 채워 서가가 풍성해 보이도록 구성
+    [4.75, 7.05, 9.35].forEach((shelfY, tierIndex) => {
+      [-1, 1].forEach((side) => {
+        let x = bx + (side < 0 ? -7.0 : 0.3);
+        const endX = bx + (side < 0 ? -0.3 : 7.0);
+        while (x < endX) {
+          const bookW = 0.38 + (Math.abs(x * (tierIndex + 3)) % 0.28);
+          const bookH = 1.25 + (Math.abs(x * (tierIndex + 5)) % 0.38);
+          const mat = bookMats[Math.floor(Math.abs(x * (tierIndex + 11)) % bookMats.length)];
+          addBox(bookW, bookH, 1.5, mat, x + bookW / 2, shelfY + 0.15 + bookH / 2, bz - 0.5, { collide: false, sample: true });
+          x += bookW + 0.06;
+        }
+      });
+    });
+  });
+
+  // 벽 쪽 5단 서가: 양쪽 긴 벽을 따라 배치해 책 수납량을 늘린다.
+  // 외벽과 간격을 두고, 양 끝 출입 동선을 비워 둔다.
+  [-56.0, 56.0].forEach((wallX, wallIndex) => {
+    const wallShelfW = 28.0;
+    const wallShelfD = 3.0;
+    const wallShelfH = 11.5;
+    const centerZ = 4.0;
+    const frontX = wallX + (wallIndex === 0 ? 1.6 : -1.6);
+    addBox(0.25, wallShelfH, wallShelfD, shelfWoodMat, frontX, wallShelfH / 2, centerZ, { collide: false, sample: true });
+    addBox(0.2, wallShelfH, wallShelfD, shelfBackMat, wallX, wallShelfH / 2, centerZ, { collide: false, sample: true });
+    addAABBCollider(frontX, wallShelfH / 2, centerZ, 0.25, wallShelfH, wallShelfD);
+    addAABBCollider(wallX, wallShelfH / 2, centerZ, 0.2, wallShelfH, wallShelfD);
+    [0.15, 2.45, 4.75, 7.05, 9.35, 11.2].forEach((y) => {
+      addBox(wallShelfD, 0.25, wallShelfW, shelfWoodMat, wallX + (wallIndex === 0 ? 1.6 : -1.6), y, centerZ, { collide: false, sample: true });
+    });
+    for (let tier = 0; tier < 5; tier++) {
+      let z = centerZ - wallShelfW / 2 + 0.3;
+      while (z < centerZ + wallShelfW / 2 - 0.3) {
+        const bookW = 0.38 + (Math.abs(z * (tier + 3 + wallIndex)) % 0.28);
+        const bookH = 1.25 + (Math.abs(z * (tier + 5)) % 0.38);
+        const mat = bookMats[Math.floor(Math.abs(z * (tier + 13)) % bookMats.length)];
+        addBox(1.5, bookH, bookW, mat, wallX + (wallIndex === 0 ? 1.6 : -1.6), [0.85, 3.15, 5.45, 7.75, 10.05][tier], z + bookW / 2, { collide: false, sample: true });
+        z += bookW + 0.06;
+      }
     }
   });
 

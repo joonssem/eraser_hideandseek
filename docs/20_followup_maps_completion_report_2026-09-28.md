@@ -45,6 +45,12 @@
 - CanvasTexture 3종 추적 및 cleanup dispose
 - 지우개 20개·술래 6개 스폰, 충돌체 81개, samplables 364개
 
+#### 후속 서가 확장 (2026-09-30)
+
+- 기존 중앙 서가 5개동을 2단에서 5단으로 확장하고, 좌우 벽 쪽에도 5단 서가를 추가했다.
+- 3~5단 책과 벽면 책을 추가했으며 기존 접근 가능한 빈 슬롯 10개는 유지했다.
+- 충돌체 및 samplables 수량은 확장 후 검사 스크립트 실행으로 재산정한다.
+
 ## 4. 정식 통합 및 배포 결정
 
 신규 맵 3종은 `index.html`의 ES module import 구역과 `MAPS` 레지스트리에 등록했다. 기존 `mapIsReady()`, `buildActiveMap()`, update 및 cleanup 경로가 `module` 계약을 지원하므로 별도 UI 분기 없이 로비와 연습 모드에 반영된다.
